@@ -1,5 +1,8 @@
 package com.mayank.framepulse.api
 
+import com.mayank.framepulse.internal.FrameMonitorImpl
+import com.mayank.framepulse.internal.FramePulseSessionImpl
+
 /**
  * Public entry point for FramePulse.
  *
@@ -25,8 +28,13 @@ object FramePulse {
      * @param listener Receives immutable metrics during the session via [FramePulseListener].
      * @return A handle used to stop monitoring and release resources.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun start(
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
         listener: FramePulseListener,
-    ): FramePulseSession = TODO("Not yet implemented")
+    ): FramePulseSession {
+        val monitor = FrameMonitorImpl()
+        monitor.start(config)
+        return FramePulseSessionImpl(monitor)
+    }
 }

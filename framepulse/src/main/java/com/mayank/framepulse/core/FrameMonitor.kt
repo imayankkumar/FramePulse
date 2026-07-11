@@ -3,7 +3,7 @@ package com.mayank.framepulse.core
 import com.mayank.framepulse.api.FramePulseConfig
 
 /**
- * Orchestrates frame signal acquisition for a single [android.os.Looper].
+ * Orchestrates frame signal acquisition for a single Android UI event loop (Looper).
  *
  * Responsibilities:
  * - Own monitoring lifecycle: start, stop, and [isRunning] state.

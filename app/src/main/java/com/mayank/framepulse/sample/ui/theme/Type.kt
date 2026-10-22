@@ -1,4 +1,4 @@
-package com.mayank.framepulse.ui.theme
+package com.mayank.framepulse.sample.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

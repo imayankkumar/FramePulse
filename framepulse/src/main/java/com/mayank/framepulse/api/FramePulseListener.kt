@@ -13,15 +13,17 @@ import com.mayank.framepulse.model.FrameMetrics
  * - Drive monitoring lifecycle (use [FramePulseSession] instead).
  * - Mutate or retain metrics beyond the callback scope unless copied intentionally.
  *
- * Future role:
- * - Primary push-based integration point for the demo app, logging, and debug overlays.
+ * Threading: invoked synchronously on the main thread from inside a `Choreographer` frame
+ * callback. Time spent here is spent on the main thread, so keep it short. Calling
+ * [FramePulseSession.stop] from inside [onMetrics] is allowed.
  */
 fun interface FramePulseListener {
 
     /**
-     * Called with the latest aggregated metrics for the configured window.
+     * Called with the latest metrics for the configured rolling window, at most once per
+     * [FramePulseConfig.reportIntervalMs].
      *
-     * @param metrics Immutable snapshot; safe to read on the invoking thread.
+     * @param metrics Immutable snapshot; safe to keep or pass to other threads.
      */
     fun onMetrics(metrics: FrameMetrics)
 }

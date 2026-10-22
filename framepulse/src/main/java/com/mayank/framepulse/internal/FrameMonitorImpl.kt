@@ -1,7 +1,6 @@
 package com.mayank.framepulse.internal
 
 import android.os.Looper
-import android.util.Log
 import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.core.FrameMonitor
 import com.mayank.framepulse.internal.source.ChoreographerFrameSource
@@ -10,21 +9,24 @@ import com.mayank.framepulse.internal.source.FrameSource
 /**
  * Default [FrameMonitor] implementation.
  *
- * Orchestrates [FrameSource] lifecycle and, during Milestone 3, logs each `frameTimeNanos`
- * to Logcat. Must be started and stopped on the main thread.
+ * Owns the [FrameSource] lifecycle and forwards each `frameTimeNanos` to [frameConsumer] while
+ * started.
  *
- * Design details (lifecycle, threading, config roadmap): `docs/FRAME_MONITOR.md`.
+ * Threading: main-thread-confined and not thread-safe. [start] checks the calling thread;
+ * [stop] and frame delivery are expected on the same thread. No locks are used.
  *
+ * Design details (lifecycle, threading): `docs/FRAME_MONITOR.md`.
+ *
+ * @param isMainThread Injected so the lifecycle can be unit tested on the JVM.
  * @see com.mayank.framepulse.core.FrameMonitor
  */
 internal class FrameMonitorImpl(
     private val frameSource: FrameSource = ChoreographerFrameSource(),
+    private val frameConsumer: (frameTimeNanos: Long) -> Unit,
+    private val isMainThread: () -> Boolean = ::isMainLooperThread,
 ) : FrameMonitor {
 
     private var state: MonitorState = MonitorState.IDLE
-
-    /** Session config for Milestone 4+ metrics; not used as a lifecycle guard. */
-    private var activeConfig: FramePulseConfig? = null
 
     override val isRunning: Boolean
         get() = state == MonitorState.STARTED
@@ -33,14 +35,12 @@ internal class FrameMonitorImpl(
         assertMainThread()
         requireIdleForStart()
 
-        activeConfig = config
         state = MonitorState.STARTED
 
         try {
             frameSource.start(::onFrameTimeNanos)
         } catch (exception: Exception) {
             frameSource.stop()
-            activeConfig = null
             state = MonitorState.IDLE
             throw exception
         }
@@ -49,15 +49,14 @@ internal class FrameMonitorImpl(
     override fun stop() {
         if (state != MonitorState.STARTED) return
 
-        frameSource.stop()
-        activeConfig = null
         state = MonitorState.STOPPED
+        frameSource.stop()
     }
 
-    /** Milestone 3: logs frame timestamps until the metrics pipeline is wired. */
     private fun onFrameTimeNanos(frameTimeNanos: Long) {
+        // Ignore stray callbacks delivered during or after shutdown.
         if (!isRunning) return
-        Log.d(LOG_TAG, "$LOG_FRAME_TIME_KEY=$frameTimeNanos")
+        frameConsumer(frameTimeNanos)
     }
 
     private fun requireIdleForStart() {
@@ -72,7 +71,7 @@ internal class FrameMonitorImpl(
     }
 
     private fun assertMainThread() {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
+        if (!isMainThread()) {
             throw IllegalStateException("FrameMonitor.start() must be called from the main thread")
         }
     }
@@ -83,9 +82,6 @@ internal class FrameMonitorImpl(
         STARTED,
         STOPPED,
     }
-
-    private companion object {
-        const val LOG_TAG = "FramePulse"
-        const val LOG_FRAME_TIME_KEY = "frameTimeNanos"
-    }
 }
+
+private fun isMainLooperThread(): Boolean = Looper.myLooper() == Looper.getMainLooper()

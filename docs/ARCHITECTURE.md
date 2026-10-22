@@ -44,7 +44,7 @@ This document is aligned with the current project setup: Android library module 
 |--------|------------|
 | Problem | Developers need lightweight, in-app visibility into frame pacing without full Systrace/Perfetto workflows. |
 | Mechanism | `Choreographer` is the correct hook for “did the UI thread complete work before the next VSYNC deadline?” on API 21+. |
-| Differentiation | Competes conceptually with `FrameMetricsAggregator` (API 24+), Jetpack JankStats (Compose), and APM SDKs. Wedge: **small, explicit, educational, Choreographer-first, View-system friendly**. |
+| Differentiation | Competes conceptually with `FrameMetricsAggregator` (API 24+), Jetpack JankStats (`androidx.metrics`; works with Views and Compose, uses `FrameMetrics` on API 24+), and APM SDKs. Wedge: **small, explicit, educational, Choreographer-first, View-system friendly**. |
 | Learning goal | Forces you through Looper → MessageQueue → Choreographer → frame callbacks → VSYNC semantics — excellent for internals depth. |
 
 ### Why this vision works

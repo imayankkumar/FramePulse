@@ -1,4 +1,4 @@
-package com.mayank.framepulse.ui.theme
+package com.mayank.framepulse.sample.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

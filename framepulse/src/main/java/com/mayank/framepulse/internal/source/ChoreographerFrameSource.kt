@@ -16,6 +16,14 @@ import android.view.Choreographer
  *   for UI monitoring). [Choreographer.getInstance] is thread-local and requires a prepared
  *   looper on the calling thread.
  *
+ * What this measures:
+ * - Because the callback re-posts itself every frame, Choreographer requests vsync on every
+ *   frame while this source runs. Callbacks therefore arrive at roughly the display refresh rate
+ *   even when the app draws nothing. The gap between two callbacks shows how promptly the main
+ *   thread serviced vsync, not whether a frame was rendered or presented.
+ * - Keeping vsync requested has a small power cost; stop the source when monitoring is not
+ *   needed.
+ *
  * Implementation details: `docs/FRAME_MONITOR.md`.
  */
 internal class ChoreographerFrameSource(

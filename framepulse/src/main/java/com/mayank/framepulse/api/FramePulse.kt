@@ -2,39 +2,47 @@ package com.mayank.framepulse.api
 
 import com.mayank.framepulse.internal.FrameMonitorImpl
 import com.mayank.framepulse.internal.FramePulseSessionImpl
+import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
+import com.mayank.framepulse.internal.source.ChoreographerFrameSource
 
 /**
  * Public entry point for FramePulse.
  *
- * Responsibilities:
- * - Expose a small, stable facade for starting monitoring sessions.
- * - Validate caller expectations (e.g. thread and lifecycle rules) before delegating inward.
- * - Hide frame sources, aggregation, and metrics implementation details.
+ * Threading contract: FramePulse is main-thread-confined and is not thread-safe. Call [start]
+ * and [FramePulseSession.stop] on the main thread. The listener is invoked on the main thread,
+ * inside a `Choreographer` frame callback, so keep it cheap.
  *
- * Must not:
- * - Perform frame math or VSYNC registration directly.
- * - Hold long-lived references to Activities, Fragments, or Views.
- *
- * Future role:
- * - Primary discoverable API for library consumers and published artifacts.
- * - Delegates to [FramePulseSession] backed by [com.mayank.framepulse.core.FrameMonitor].
+ * Lifecycle contract: the caller owns the session. FramePulse does not observe Activity or
+ * process lifecycle; call [FramePulseSession.stop] when monitoring is no longer needed
+ * (for example in `onStop`). A stopped session cannot be restarted; call [start] again.
  */
 object FramePulse {
 
     /**
-     * Starts a new monitoring session with the given configuration.
+     * Starts a new monitoring session.
      *
-     * @param config Session parameters such as window duration and frame budget assumptions.
-     * @param listener Receives immutable metrics during the session via [FramePulseListener].
-     * @return A handle used to stop monitoring and release resources.
+     * @param config Window, frame budget, jank threshold and report interval.
+     * @param listener Receives immutable metrics on the main thread, at most once per
+     *   [FramePulseConfig.reportIntervalMs].
+     * @return A handle used to stop monitoring.
+     * @throws IllegalStateException if called off the main thread.
      */
-    @Suppress("UNUSED_PARAMETER")
     fun start(
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
         listener: FramePulseListener,
     ): FramePulseSession {
-        val monitor = FrameMonitorImpl()
-        monitor.start(config)
-        return FramePulseSessionImpl(monitor)
+        val session = FramePulseSessionImpl(
+            config = config,
+            listener = listener,
+            calculator = RollingWindowFpsCalculator(),
+            monitorFactory = { consumer ->
+                FrameMonitorImpl(
+                    frameSource = ChoreographerFrameSource(),
+                    frameConsumer = consumer,
+                )
+            },
+        )
+        session.start()
+        return session
     }
 }

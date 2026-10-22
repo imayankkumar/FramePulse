@@ -484,8 +484,8 @@ Reference implementation: `com.mayank.framepulse.internal.FrameMonitorImpl`.
 | Owns | Must not own |
 |------|----------------|
 | `MonitorState` lifecycle (`IDLE` → `STARTED` → `STOPPED`) | FPS math (`FPSCalculator`) |
-| Active `FramePulseConfig` after successful `start()` | Listener dispatch |
-| Bridging `FrameSource` ticks to downstream code | Direct `Choreographer` registration |
+| Forwarding `FrameSource` ticks to an injected consumer while `STARTED` | Listener dispatch (`FramePulseSessionImpl`) |
+| Main-thread check on `start()` (injectable for JVM tests) | Direct `Choreographer` registration |
 
 ### Lifecycle
 
@@ -501,11 +501,10 @@ IDLE ──start()──► STARTED ──stop()──► STOPPED
 
 ### Exception-safe start
 
-`FrameMonitorImpl.start()` prepares session state **before** registering callbacks so synchronous
-`doFrame` invocations never see a null `activeConfig`:
+`FrameMonitorImpl.start()` sets `state = STARTED` **before** registering callbacks, so a
+synchronous `doFrame` during registration is not dropped:
 
 ```
-activeConfig = config
 state = STARTED
 frameSource.start(::onFrameTimeNanos)
 ```
@@ -513,31 +512,32 @@ frameSource.start(::onFrameTimeNanos)
 If registration throws an `Exception`:
 
 1. Call `FrameSource.stop()` (best-effort cleanup).
-2. Clear `activeConfig` and reset state to `IDLE`.
+2. Reset state to `IDLE`.
 3. Rethrow the exception.
 
 Only `Exception` is caught — not `Error` subclasses such as `OutOfMemoryError`, which should propagate without lifecycle recovery attempts.
 
-### Config usage (Milestone 3)
+### Metrics wiring (v0.1)
 
-`FramePulseConfig` is retained in `activeConfig` on successful `start()` but not yet passed to metrics code.
+`FramePulseSessionImpl` builds the monitor with a frame consumer. Each tick goes to
+`RollingWindowFpsCalculator.onFrame(frameTimeNanos, config)`; when it returns a snapshot (at most
+once per `reportIntervalMs`), the session calls the listener synchronously on the main thread.
 
-| Field | Future use (Milestone 4+) |
-|-------|---------------------------|
-| `windowDurationMs` | Rolling aggregation window in `FPSCalculator` |
-| `expectedFramePeriodMs` | Frame budget baseline for jank heuristics |
-
-During Milestone 3, `onFrameTimeNanos()` only logs `frameTimeNanos`. Stray callbacks during shutdown are ignored when `isRunning` is `false` — logging must never crash the host app. `activeConfig` is retained for Milestone 4 metrics but is not used as a lifecycle guard.
+Stray callbacks delivered during or after shutdown are ignored because `onFrameTimeNanos()` checks
+`isRunning` first. Calling `stop()` from inside the listener is safe: the source is unregistered and
+the re-post in `ChoreographerFrameSource` is skipped.
 
 ### Threading
 
-`start()` and `stop()` must run on the main thread. Frame callbacks arrive on the same looper as the `FrameSource`.
+Main-thread-confined, no locks. `start()` checks the calling thread and throws
+`IllegalStateException` off the main thread. `stop()` and frame delivery are expected on the same
+thread. Frame callbacks arrive on the same looper as the `FrameSource`.
 
-### Future evolution
+### Tests
 
-1. Replace logging in `onFrameTimeNanos()` with `FPSCalculator.onFrame()`.
-2. Emit `FrameMetrics` through the session layer.
-3. Remove debug logging once metrics are validated.
+`FramePulseSessionImplTest` drives the monitor with a `FakeFrameSource` on the JVM: double start,
+no restart after stop, idempotent stop, no listener calls after stop (including stray callbacks and
+stop from inside the listener), off-main-thread start, and source start failure.
 
 ---
 

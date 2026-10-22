@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.mayank.framepulse"
+    namespace = "com.mayank.framepulse.sample"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.mayank.framepulse"
+        applicationId = "com.mayank.framepulse.sample"
         minSdk = 23
         targetSdk = 36
         versionCode = 1
@@ -42,6 +42,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":framepulse"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

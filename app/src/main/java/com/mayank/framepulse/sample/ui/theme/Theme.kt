@@ -1,4 +1,4 @@
-package com.mayank.framepulse.ui.theme
+package com.mayank.framepulse.sample.ui.theme
 
 import android.app.Activity
 import android.os.Build

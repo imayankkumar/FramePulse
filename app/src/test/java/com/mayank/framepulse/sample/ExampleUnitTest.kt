@@ -1,4 +1,4 @@
-package com.mayank.framepulse
+package com.mayank.framepulse.sample
 
 import org.junit.Test
 

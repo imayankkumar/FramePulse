@@ -163,7 +163,7 @@ class MainActivity : ComponentActivity() {
 
 # Threading and lifecycle
 
-- **Main-thread-confined.** Call `FramePulse.start()` and `session.stop()` on the main thread; `start()` throws `IllegalStateException` otherwise. FramePulse is not thread-safe and uses no locks.
+- **Main-thread-confined.** Call `FramePulse.start()` and `session.stop()` on the main thread; both throw `IllegalStateException` otherwise. A rejected `stop()` leaves the session running, so you can still stop it from the main thread. FramePulse is not thread-safe and uses no locks.
 - **The listener runs on the main thread**, synchronously inside the frame callback. Keep it cheap. `FrameMetrics` is immutable, so you can hand it to another thread.
 - **You own the lifecycle.** FramePulse does not observe Activity or process lifecycle. Every `start()` needs a matching `stop()`. Calling `stop()` more than once is fine, and you can call it from inside the listener.
 - **No restart.** A stopped session stays stopped; call `FramePulse.start()` again for a new one.

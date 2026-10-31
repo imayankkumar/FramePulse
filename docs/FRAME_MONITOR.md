@@ -485,7 +485,7 @@ Reference implementation: `com.mayank.framepulse.internal.FrameMonitorImpl`.
 |------|----------------|
 | `MonitorState` lifecycle (`IDLE` → `STARTED` → `STOPPED`) | FPS math (`FPSCalculator`) |
 | Forwarding `FrameSource` ticks to an injected consumer while `STARTED` | Listener dispatch (`FramePulseSessionImpl`) |
-| Main-thread check on `start()` (injectable for JVM tests) | Direct `Choreographer` registration |
+| Main-thread check on `start()` and `stop()` (injectable for JVM tests) | Direct `Choreographer` registration |
 
 ### Lifecycle
 
@@ -516,6 +516,17 @@ If registration throws an `Exception`:
 3. Rethrow the exception.
 
 Only `Exception` is caught — not `Error` subclasses such as `OutOfMemoryError`, which should propagate without lifecycle recovery attempts.
+
+### Thread check on stop
+
+`FrameMonitorImpl.stop()` checks the calling thread **before** changing state. It returns early
+when not `STARTED`, so stopping an idle or stopped monitor stays a no-op on any thread. When
+`STARTED` and called off the main thread, it throws `IllegalStateException` and leaves the
+monitor `STARTED` with the source still registered.
+
+The order matters. `ChoreographerFrameSource.stop()` throws on the wrong thread before it
+removes its callback. If the monitor moved to `STOPPED` first, a retry of `stop()` would return
+early and the callback would keep re-posting every vsync for the life of the process.
 
 ### Metrics wiring (v0.1)
 

@@ -12,8 +12,8 @@ import com.mayank.framepulse.internal.source.FrameSource
  * Owns the [FrameSource] lifecycle and forwards each `frameTimeNanos` to [frameConsumer] while
  * started.
  *
- * Threading: main-thread-confined and not thread-safe. [start] checks the calling thread;
- * [stop] and frame delivery are expected on the same thread. No locks are used.
+ * Threading: main-thread-confined and not thread-safe. [start] and [stop] check the calling
+ * thread; frame delivery is expected on the same thread. No locks are used.
  *
  * Design details (lifecycle, threading): `docs/FRAME_MONITOR.md`.
  *
@@ -32,7 +32,7 @@ internal class FrameMonitorImpl(
         get() = state == MonitorState.STARTED
 
     override fun start(config: FramePulseConfig) {
-        assertMainThread()
+        assertMainThread("start")
         requireIdleForStart()
 
         state = MonitorState.STARTED
@@ -48,6 +48,9 @@ internal class FrameMonitorImpl(
 
     override fun stop() {
         if (state != MonitorState.STARTED) return
+        // Check before changing state. If the source threw after the state change, the monitor
+        // would report stopped while the source kept re-posting its frame callback.
+        assertMainThread("stop")
 
         state = MonitorState.STOPPED
         frameSource.stop()
@@ -70,9 +73,9 @@ internal class FrameMonitorImpl(
         }
     }
 
-    private fun assertMainThread() {
+    private fun assertMainThread(method: String) {
         if (!isMainThread()) {
-            throw IllegalStateException("FrameMonitor.start() must be called from the main thread")
+            throw IllegalStateException("FrameMonitor.$method() must be called from the main thread")
         }
     }
 

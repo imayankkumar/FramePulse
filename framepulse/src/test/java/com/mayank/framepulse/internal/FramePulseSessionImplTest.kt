@@ -133,6 +133,47 @@ class FramePulseSessionImplTest {
     }
 
     @Test
+    fun stopOffTheMainThreadThrowsAndLeavesTheSessionRunning() {
+        val session = newSession()
+        session.start()
+        source.emit(0L)
+
+        onMainThread = false
+        assertThrows(IllegalStateException::class.java) { session.stop() }
+
+        // Nothing changed: the source is still registered and frames still reach the listener.
+        assertTrue(session.isRunning)
+        assertEquals(0, source.stopCount)
+        source.emit(PERIOD)
+        assertEquals(1, received.size)
+
+        // A retry on the main thread stops the source exactly once.
+        onMainThread = true
+        session.stop()
+
+        assertFalse(session.isRunning)
+        assertEquals(1, source.stopCount)
+    }
+
+    @Test
+    fun stopOffTheMainThreadIsANoOpWhenNotRunning() {
+        val idle = newSession()
+        onMainThread = false
+        idle.stop()
+        assertEquals(0, source.stopCount)
+
+        onMainThread = true
+        val stopped = newSession()
+        stopped.start()
+        stopped.stop()
+        onMainThread = false
+        stopped.stop()
+
+        assertFalse(stopped.isRunning)
+        assertEquals(1, source.stopCount)
+    }
+
+    @Test
     fun sourceStartFailureIsRethrownAndLeavesSessionIdle() {
         val failure = IllegalStateException("boom")
         source.startFailure = failure

@@ -16,7 +16,13 @@ package com.mayank.framepulse.api
  */
 interface FramePulseSession {
 
-    /** Stops monitoring and prevents further listener invocations. */
+    /**
+     * Stops monitoring and prevents further listener invocations. Idempotent.
+     *
+     * Main thread only. On a running session, a call from another thread throws
+     * [IllegalStateException] and changes nothing: the session keeps running, so it can still be
+     * stopped from the main thread. On a session that is not running, this is a no-op on any thread.
+     */
     fun stop()
 
     /** Whether the session is actively receiving frame signals. */

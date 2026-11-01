@@ -14,19 +14,29 @@ import com.mayank.framepulse.api.FramePulseConfig
  * - Calculate FPS or classify jank (delegated to [com.mayank.framepulse.metrics.FPSCalculator]).
  * - Expose public listener types or publish [com.mayank.framepulse.model.FrameMetrics] directly.
  *
- * Future role:
- * - Implemented in [com.mayank.framepulse.internal] using a pluggable frame source and forwarding
- *   `frameTimeNanos` to the metrics layer on each frame tick.
+ * The default implementation lives in [com.mayank.framepulse.internal]. It uses a pluggable
+ * frame source and forwards `frameTimeNanos` to the metrics layer on each frame tick.
+ *
+ * Threading: main-thread-confined and not thread-safe. A monitor runs once: IDLE, then
+ * STARTED, then STOPPED. It cannot be restarted.
  */
 interface FrameMonitor {
 
     /**
-     * Begins monitoring on the looper implied by [config] (main looper when unspecified).
+     * Begins monitoring on the main thread's Choreographer.
+     *
+     * [config] does not select a thread or looper; monitoring always runs on the main thread.
+     *
+     * @throws IllegalStateException if called off the main thread, if already started, or
+     *   after [stop].
      */
     fun start(config: FramePulseConfig)
 
     /**
-     * Stops monitoring and unregisters frame callbacks.
+     * Stops monitoring and unregisters frame callbacks. Does nothing if not started.
+     *
+     * @throws IllegalStateException if called off the main thread while started. The monitor
+     *   then stays started; call [stop] again on the main thread.
      */
     fun stop()
 

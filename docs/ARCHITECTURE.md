@@ -1,7 +1,21 @@
 # FramePulse — Architecture & Design Review
 
-> **Status:** Design document (v0.1)  
+> **Status:** Design document (v0.1), written before implementation. Kept as design history.
+>
 > **Scope:** Architecture and engineering design only — no implementation code.
+
+> **Shipped v0.1 differs from this design.** For the current API see the
+> [README](../README.md) and the KDoc in `com.mayank.framepulse.api`. Main differences:
+>
+> - `FramePulse.start(config, listener)` takes the listener. `FramePulseConfig` has no
+>   `looper`; monitoring is main-thread only. It has `reportIntervalMs` (default 250 ms).
+> - The listener is `FramePulseListener.onMetrics(FrameMetrics)` (`model` package), not
+>   `onSnapshot(FramePulseSnapshot)`.
+> - Packages are `api`, `core` (`FrameMonitor`), `metrics` (`FPSCalculator`), `model` and
+>   `internal`. There is no separate `FrameClock`, `JankDetector` or aggregator: the rolling
+>   window and jank count live in `internal.metrics.RollingWindowFpsCalculator`.
+> - A stopped session cannot be restarted. Lifecycle details:
+>   [FRAME_MONITOR.md §14](./FRAME_MONITOR.md#14-framemonitorimpl-implementation-notes).
 
 This document is aligned with the current project setup: Android library module `framepulse`, namespace `com.mayank.framepulse`, minSdk 21, Kotlin-only core, no Compose in the library, and a separate `:app` demo module.
 

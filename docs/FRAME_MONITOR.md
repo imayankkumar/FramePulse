@@ -242,15 +242,16 @@ stateDiagram-v2
     [*] --> Idle: create monitor
 
     Idle --> Started: start(config)
-    Started --> Started: start() again (reject or no-op — pick one policy)
+    Started --> Idle: frame source start throws (cleanup, rethrow)
     Started --> Stopped: stop()
-    Stopped --> Started: start(config) (optional: allow restart)
     Stopped --> Stopped: stop() (idempotent)
-    Started --> Stopped: implicit on fatal error (document)
 
     Stopped --> [*]: release session reference
     Idle --> [*]: discard without start
 ```
+
+`start()` from **Started** or **Stopped** throws and does not change state. There is no restart:
+a stopped monitor is terminal. Start a new session with `FramePulse.start()`.
 
 ### State semantics
 
@@ -258,16 +259,18 @@ stateDiagram-v2
 |-------|----------------------|-----------------|-------|
 | **Idle** | No | No | Initial state after construction |
 | **Started** | Yes | Yes | Exactly one active chain |
-| **Stopped** | No | No | Terminal for that session unless restart explicitly supported |
+| **Stopped** | No | No | Terminal; no restart |
 
-### Policy recommendations (v0.1)
+### Policy (v0.1, as implemented in `FrameMonitorImpl`)
 
-| Event | Recommended behavior |
-|-------|----------------------|
-| `start()` from **Started** | Fail fast (`IllegalStateException`) or return early — **prefer fail fast** for debuggability |
+| Event | Behavior |
+|-------|----------|
+| `start()` from **Started** | Throws `IllegalStateException`; state unchanged |
+| `start()` after **Stopped** | Throws `IllegalStateException`; start a new session via `FramePulse.start()` |
+| `start()` off the main thread | Throws `IllegalStateException`; state unchanged |
 | `stop()` from **Idle** | No-op (idempotent) |
 | `stop()` from **Stopped** | No-op (idempotent) |
-| `start()` after **Stopped** | v0.1: **disallow** — new session via `FramePulse.start()`; avoids stale config/calculator state |
+| `stop()` from **Started**, off the main thread | Throws `IllegalStateException`; stays **Started** (see §14) |
 
 `isRunning` == true **only** in **Started**.
 

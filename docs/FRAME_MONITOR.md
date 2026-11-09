@@ -1,6 +1,10 @@
 # FrameMonitor — Design Specification
 
-Design-only document for `com.mayank.framepulse.core.FrameMonitor`. Aligns with the approved FramePulse architecture: **orchestration in `core`**, **platform hooks in `internal`**, **math in `metrics`**, **public API in `api`**.
+Design document for `FrameMonitor`. Aligns with the approved FramePulse architecture: **orchestration in `core`**, **platform hooks in `internal`**, **math in `metrics`**, **public API in `api`**.
+
+> **Shipped:** `FrameMonitor` is internal (`com.mayank.framepulse.internal.FrameMonitor`), and so
+> is `FPSCalculator` (`com.mayank.framepulse.internal.metrics`). The public API is `api` and
+> `model` only. Where this document says `core` or `metrics`, read `internal`.
 
 ---
 
@@ -215,11 +219,11 @@ classDiagram
 
 | Abstraction | Package | Purpose |
 |-------------|---------|---------|
-| **`FrameMonitor`** | `core` | Public-to-module orchestration interface (already sketched) |
+| **`FrameMonitor`** | `internal` | Internal orchestration interface |
 | **`FrameMonitorImpl`** | `internal` | Concrete lifecycle + wiring (future) |
 | **`FrameSource`** | `internal` | Start/stop platform callback registration |
 | **`FrameTickCallback`** (or lambda type) | `internal` | `(frameTimeNanos: Long) -> Unit` invoked on looper thread |
-| **`FPSCalculator`** | `metrics` | Pure timestamp → `FrameMetrics?` |
+| **`FPSCalculator`** | `internal.metrics` | Pure timestamp → `FrameMetrics?` (internal) |
 | **`FramePulseSession`** | `api` | Owns monitor + listener throttle + snapshot dispatch |
 
 ### Dependency direction (strict)
@@ -474,7 +478,7 @@ sequenceDiagram
 | Biggest risks | Orphaned callbacks, listener holding Activity, heavy work on UI thread |
 | Testing hinge | **`FrameSource` fake** — monitor tests without platform |
 
-This design keeps `core.FrameMonitor` stable and small while allowing platform and metrics evolution without breaking the public API.
+This design keeps `FrameMonitor` small and internal, so platform and metrics code can change without breaking the public API.
 
 ---
 

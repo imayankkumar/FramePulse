@@ -3,9 +3,8 @@ package com.mayank.framepulse.internal
 import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.api.FramePulseListener
 import com.mayank.framepulse.api.FramePulseSession
-import com.mayank.framepulse.core.FrameMonitor
+import com.mayank.framepulse.internal.metrics.FPSCalculator
 import com.mayank.framepulse.internal.source.RefreshRateSource
-import com.mayank.framepulse.metrics.FPSCalculator
 
 /**
  * Internal [FramePulseSession]: wires a [FrameMonitor] to an [FPSCalculator] and a listener.

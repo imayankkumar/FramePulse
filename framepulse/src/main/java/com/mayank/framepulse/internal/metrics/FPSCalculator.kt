@@ -1,4 +1,4 @@
-package com.mayank.framepulse.metrics
+package com.mayank.framepulse.internal.metrics
 
 import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.model.FrameMetrics
@@ -17,9 +17,9 @@ import com.mayank.framepulse.model.FrameMetrics
  *
  * Future role:
  * - Core of the metrics pipeline; may be composed with a dedicated jank classifier and
- *   ring-buffer aggregator in later versions without changing the public API.
+ *   ring-buffer aggregator in later versions. Internal, so it can change freely.
  */
-interface FPSCalculator {
+internal interface FPSCalculator {
 
     /**
      * Records a new frame timestamp and returns updated metrics when a snapshot is ready.

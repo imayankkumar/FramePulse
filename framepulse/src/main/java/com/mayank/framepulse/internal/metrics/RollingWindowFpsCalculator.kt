@@ -1,7 +1,6 @@
 package com.mayank.framepulse.internal.metrics
 
 import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.metrics.FPSCalculator
 import com.mayank.framepulse.model.FrameMetrics
 
 /**

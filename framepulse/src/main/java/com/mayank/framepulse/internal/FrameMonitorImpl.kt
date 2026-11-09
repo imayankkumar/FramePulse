@@ -2,7 +2,6 @@ package com.mayank.framepulse.internal
 
 import android.os.Looper
 import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.core.FrameMonitor
 import com.mayank.framepulse.internal.source.ChoreographerFrameSource
 import com.mayank.framepulse.internal.source.FrameSource
 
@@ -18,7 +17,7 @@ import com.mayank.framepulse.internal.source.FrameSource
  * Design details (lifecycle, threading): `docs/FRAME_MONITOR.md`.
  *
  * @param isMainThread Injected so the lifecycle can be unit tested on the JVM.
- * @see com.mayank.framepulse.core.FrameMonitor
+ * @see FrameMonitor
  */
 internal class FrameMonitorImpl(
     private val frameSource: FrameSource = ChoreographerFrameSource(),

@@ -1,4 +1,4 @@
-package com.mayank.framepulse.core
+package com.mayank.framepulse.internal
 
 import com.mayank.framepulse.api.FramePulseConfig
 
@@ -11,16 +11,17 @@ import com.mayank.framepulse.api.FramePulseConfig
  * - Ensure at most one active callback chain per session (no duplicate registration).
  *
  * Must not:
- * - Calculate FPS or classify jank (delegated to [com.mayank.framepulse.metrics.FPSCalculator]).
+ * - Calculate FPS or classify jank (delegated to
+ *   [com.mayank.framepulse.internal.metrics.FPSCalculator]).
  * - Expose public listener types or publish [com.mayank.framepulse.model.FrameMetrics] directly.
  *
- * The default implementation lives in [com.mayank.framepulse.internal]. It uses a pluggable
+ * The default implementation is [FrameMonitorImpl]. It uses a pluggable
  * frame source and forwards `frameTimeNanos` to the metrics layer on each frame tick.
  *
  * Threading: main-thread-confined and not thread-safe. A monitor runs once: IDLE, then
  * STARTED, then STOPPED. It cannot be restarted.
  */
-interface FrameMonitor {
+internal interface FrameMonitor {
 
     /**
      * Begins monitoring on the main thread's Choreographer.

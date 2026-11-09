@@ -11,8 +11,9 @@
 >   `looper`; monitoring is main-thread only. It has `reportIntervalMs` (default 250 ms).
 > - The listener is `FramePulseListener.onMetrics(FrameMetrics)` (`model` package), not
 >   `onSnapshot(FramePulseSnapshot)`.
-> - Packages are `api`, `core` (`FrameMonitor`), `metrics` (`FPSCalculator`), `model` and
->   `internal`. There is no separate `FrameClock`, `JankDetector` or aggregator: the rolling
+> - Public packages are `api` and `model`. `FrameMonitor` and `FPSCalculator` are internal
+>   (`internal` and `internal.metrics`), not the public `core` and `metrics` contracts below, and
+>   there is no separate `FrameClock`, `JankDetector` or aggregator: the rolling
 >   window and jank count live in `internal.metrics.RollingWindowFpsCalculator`.
 > - A stopped session cannot be restarted. Lifecycle details:
 >   [FRAME_MONITOR.md §14](./FRAME_MONITOR.md#14-framemonitorimpl-implementation-notes).

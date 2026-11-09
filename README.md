@@ -206,9 +206,8 @@ FramePulse
 │
 ├── framepulse/
 │   ├── api/             Public API: FramePulse, config, listener, session
-│   ├── core/            FrameMonitor contract
-│   ├── internal/        Implementation: monitor, session, Choreographer source, calculator
-│   ├── metrics/         FPSCalculator contract
+│   ├── internal/        Implementation (not public): FrameMonitor, FPSCalculator, session,
+│   │                    Choreographer and refresh-rate sources
 │   └── model/           Immutable FrameMetrics
 │
 ├── docs/

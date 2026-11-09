@@ -29,6 +29,7 @@ FramePulse goes the other way. Its goals are to:
 - `Choreographer`-based frame source behind a `FrameSource` abstraction
 - Rolling-window FPS, average and max frame interval
 - Jank detection against a configurable frame budget
+- Optional frame budget that follows display refresh-rate changes during a session
 - Listener API delivering immutable `FrameMetrics` snapshots
 - Explicit session lifecycle (start / stop, no restart)
 - JVM unit tests for the metrics math and the session state machine
@@ -39,7 +40,6 @@ FramePulse goes the other way. Its goals are to:
 
 - Percentiles (p50 / p95 / p99)
 - `FrameMetrics` (API 24+) frame source with per-stage timings
-- Handling refresh-rate changes during a session
 - Benchmark module (measure FramePulse's own overhead)
 - Instrumentation tests
 - Maven Central publishing
@@ -74,7 +74,7 @@ VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(fram
 
 **Known limitations**
 
-- **The frame budget is fixed for the session.** The library does not read the display's refresh rate; you pass it in (`withRefreshRate(display.refreshRate)`). On variable-refresh-rate displays (for example Pixel "Smooth Display"), the system can drop from 120 Hz to 60 Hz when the screen is idle. With a 120 Hz budget, every 60 Hz frame then counts as jank. On a Pixel 6 Pro this showed up as ~65 FPS and dozens of "janks" per second on an idle screen. The demo app works around it by requesting the highest refresh-rate display mode for its window.
+- **Refresh-rate changes need the `Display` overload.** `FramePulse.start(config, listener)` uses a fixed budget for the whole session. On variable-refresh-rate displays (for example Pixel "Smooth Display"), the system can drop from 120 Hz to 60 Hz when the screen is idle. With a fixed 120 Hz budget, every 60 Hz frame then counts as jank. On a Pixel 6 Pro this showed up as ~65 FPS and dozens of "janks" per second on an idle screen. `FramePulse.start(context, display, config, listener)` follows the rate reported by `Display.getRefreshRate()` through `DisplayManager.DisplayListener` instead. Changes the system does not report there (for example per-app frame-rate overrides) are not seen, and the interval that spans a switch is judged against the new budget. This has been checked with unit tests only, not yet on a device.
 - **Observer effect.** The listener runs on the main thread, and whatever it does (for example updating UI) is measured too. In the debug build of the demo app on a Pixel 6 Pro, the demo's own metric updates (4 per second) were slow enough to register as about 4 janks per second while idle; `adb shell dumpsys gfxinfo` reported the same frames as janky ("Slow UI thread").
 - **Power.** Keeping a frame callback posted keeps vsync running. Stop the session when you don't need it.
 
@@ -122,10 +122,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        val refreshRate = display?.refreshRate ?: 60f // Activity.getDisplay() is API 30+
-        val config = FramePulseConfig.DEFAULT.withRefreshRate(refreshRate)
-
-        session = FramePulse.start(config) { metrics ->
+        // The frame budget follows this display's refresh rate, including mid-session changes.
+        // Activity.getDisplay() is API 30+; use windowManager.defaultDisplay below that.
+        session = FramePulse.start(this, display!!, FramePulseConfig.DEFAULT) { metrics ->
             Log.d("FramePulse", "fps=%.1f jank=%d max=%.1fms".format(
                 metrics.fps, metrics.jankCount, metrics.maxFrameTimeMs))
         }
@@ -155,7 +154,7 @@ class MainActivity : ComponentActivity() {
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `windowDurationMs` | 1000 | Rolling window length |
-| `expectedFramePeriodMs` | 16.67 | Frame budget; set it with `withRefreshRate(hz)` |
+| `expectedFramePeriodMs` | 16.67 | Frame budget; set it with `withRefreshRate(hz)`. Replaced by the display's rate when you pass a `Display` |
 | `jankThresholdMultiplier` | 1.5 | Jank if interval > budget × multiplier (must be ≥ 1.0) |
 | `reportIntervalMs` | 250 | Minimum time between listener calls; 0 = every frame |
 

@@ -12,9 +12,10 @@ package com.mayank.framepulse.api
  * - Hold runtime monitoring state or listener references.
  * - Reference Android UI components.
  *
- * The library does not read the display refresh rate itself (that needs a `Context` or
- * `Display`). The caller supplies it, either directly via [expectedFramePeriodMs] or with
- * [withRefreshRate]. The default assumes a 60 Hz display.
+ * With `FramePulse.start(config, listener)` the frame budget is fixed: the caller supplies it via
+ * [expectedFramePeriodMs] or [withRefreshRate]. The default assumes a 60 Hz display. With the
+ * `FramePulse.start(context, display, config, listener)` overload, the display's refresh rate
+ * replaces [expectedFramePeriodMs] at start and whenever it changes.
  *
  * @property windowDurationMs Length of the rolling window used for FPS, average and max frame
  *   time, and [com.mayank.framepulse.model.FrameMetrics.jankCount]. Must be > 0.

@@ -24,7 +24,7 @@ package com.mayank.framepulse.model
  * @property totalFrameCount Frame intervals observed since the session started.
  * @property totalJankCount Jank intervals observed since the session started.
  */
-data class FrameMetrics(
+public data class FrameMetrics(
     val lastFrameTimeNanos: Long,
     val fps: Double,
     val frameCount: Int,

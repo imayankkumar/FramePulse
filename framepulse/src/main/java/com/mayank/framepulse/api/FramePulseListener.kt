@@ -17,7 +17,7 @@ import com.mayank.framepulse.model.FrameMetrics
  * callback. Time spent here is spent on the main thread, so keep it short. Calling
  * [FramePulseSession.stop] from inside [onMetrics] is allowed.
  */
-fun interface FramePulseListener {
+public fun interface FramePulseListener {
 
     /**
      * Called with the latest metrics for the configured rolling window, at most once per
@@ -25,5 +25,5 @@ fun interface FramePulseListener {
      *
      * @param metrics Immutable snapshot; safe to keep or pass to other threads.
      */
-    fun onMetrics(metrics: FrameMetrics)
+    public fun onMetrics(metrics: FrameMetrics)
 }

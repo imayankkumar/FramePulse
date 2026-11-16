@@ -21,7 +21,7 @@ import com.mayank.framepulse.internal.source.RefreshRateSource
  * process lifecycle; call [FramePulseSession.stop] when monitoring is no longer needed
  * (for example in `onStop`). A stopped session cannot be restarted; call [start] again.
  */
-object FramePulse {
+public object FramePulse {
 
     /**
      * Starts a new monitoring session with a fixed frame budget.
@@ -36,7 +36,7 @@ object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
-    fun start(
+    public fun start(
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
         listener: FramePulseListener,
     ): FramePulseSession = startSession(config, listener, refreshRateSource = null)
@@ -62,7 +62,7 @@ object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
-    fun start(
+    public fun start(
         context: Context,
         display: Display,
         config: FramePulseConfig = FramePulseConfig.DEFAULT,

@@ -14,7 +14,7 @@ package com.mayank.framepulse.api
  * Future role:
  * - Owned by host apps; stopped from lifecycle boundaries (e.g. when UI is no longer visible).
  */
-interface FramePulseSession {
+public interface FramePulseSession {
 
     /**
      * Stops monitoring and prevents further listener invocations. Idempotent.
@@ -23,8 +23,8 @@ interface FramePulseSession {
      * [IllegalStateException] and changes nothing: the session keeps running, so it can still be
      * stopped from the main thread. On a session that is not running, this is a no-op on any thread.
      */
-    fun stop()
+    public fun stop()
 
     /** Whether the session is actively receiving frame signals. */
-    val isRunning: Boolean
+    public val isRunning: Boolean
 }

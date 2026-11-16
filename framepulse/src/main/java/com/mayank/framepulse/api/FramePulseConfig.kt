@@ -26,7 +26,7 @@ package com.mayank.framepulse.api
  * @property reportIntervalMs Minimum time between two listener calls, measured on the frame
  *   clock. 0 reports on every frame. Must be >= 0.
  */
-data class FramePulseConfig(
+public data class FramePulseConfig(
     val windowDurationMs: Long = DEFAULT_WINDOW_DURATION_MS,
     val expectedFramePeriodMs: Float = DEFAULT_EXPECTED_FRAME_PERIOD_MS,
     val jankThresholdMultiplier: Float = DEFAULT_JANK_THRESHOLD_MULTIPLIER,
@@ -44,26 +44,26 @@ data class FramePulseConfig(
     }
 
     /** Frame intervals strictly longer than this many milliseconds are counted as jank. */
-    val jankThresholdMs: Float
+    public val jankThresholdMs: Float
         get() = expectedFramePeriodMs * jankThresholdMultiplier
 
     /**
      * Returns a copy whose [expectedFramePeriodMs] matches [refreshRateHz]
      * (for example `display.refreshRate`).
      */
-    fun withRefreshRate(refreshRateHz: Float): FramePulseConfig {
+    public fun withRefreshRate(refreshRateHz: Float): FramePulseConfig {
         require(refreshRateHz > 0f) { "refreshRateHz must be > 0, was $refreshRateHz" }
         return copy(expectedFramePeriodMs = MILLIS_PER_SECOND / refreshRateHz)
     }
 
-    companion object {
+    public companion object {
         /** Default configuration for [FramePulse.start]. */
-        val DEFAULT: FramePulseConfig = FramePulseConfig()
+        public val DEFAULT: FramePulseConfig = FramePulseConfig()
 
-        const val DEFAULT_WINDOW_DURATION_MS: Long = 1_000L
-        const val DEFAULT_EXPECTED_FRAME_PERIOD_MS: Float = 16.67f
-        const val DEFAULT_JANK_THRESHOLD_MULTIPLIER: Float = 1.5f
-        const val DEFAULT_REPORT_INTERVAL_MS: Long = 250L
+        public const val DEFAULT_WINDOW_DURATION_MS: Long = 1_000L
+        public const val DEFAULT_EXPECTED_FRAME_PERIOD_MS: Float = 16.67f
+        public const val DEFAULT_JANK_THRESHOLD_MULTIPLIER: Float = 1.5f
+        public const val DEFAULT_REPORT_INTERVAL_MS: Long = 250L
 
         private const val MILLIS_PER_SECOND = 1_000f
     }

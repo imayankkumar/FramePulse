@@ -34,6 +34,11 @@ android {
     }
 }
 
+kotlin {
+    // Every declaration must state its visibility, so nothing becomes public API by accident.
+    explicitApi()
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)

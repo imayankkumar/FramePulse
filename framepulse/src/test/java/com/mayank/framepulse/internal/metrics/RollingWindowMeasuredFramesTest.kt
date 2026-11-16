@@ -1,0 +1,194 @@
+package com.mayank.framepulse.internal.metrics
+
+import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.model.FrameMetrics
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+/** [RollingWindowFpsCalculator.onMeasuredFrame]: frames with a platform-measured duration. */
+class RollingWindowMeasuredFramesTest {
+
+    private val calculator = RollingWindowFpsCalculator()
+
+    /** Report on every frame so each call can be inspected. 60 Hz budget, 25 ms threshold. */
+    private val everyFrame = FramePulseConfig(reportIntervalMs = 0)
+
+    private fun frame(
+        timeNanos: Long,
+        durationMs: Long,
+        deadlineMs: Long = NO_DEADLINE,
+        config: FramePulseConfig = everyFrame,
+    ): FrameMetrics? = calculator.onMeasuredFrame(
+        frameTimeNanos = timeNanos,
+        durationNanos = durationMs * NANOS_PER_MS,
+        deadlineNanos = if (deadlineMs == NO_DEADLINE) NO_DEADLINE else deadlineMs * NANOS_PER_MS,
+        config = config,
+    )
+
+    @Test
+    fun firstFrameIsReportedWithItsOwnDuration() {
+        val metrics = frame(timeNanos = START, durationMs = 5)!!
+
+        assertEquals(1, metrics.frameCount)
+        assertEquals(1L, metrics.totalFrameCount)
+        assertEquals(5.0, metrics.averageFrameTimeMs, 0.001)
+        assertEquals(5.0, metrics.maxFrameTimeMs, 0.001)
+        assertEquals(0, metrics.jankCount)
+        assertEquals(START, metrics.lastFrameTimeNanos)
+        // One frame in one refresh period (the default budget is 16.67 ms).
+        assertEquals(60.0, metrics.fps, 0.02)
+    }
+
+    @Test
+    fun steadySixtyFramesPerSecondReportsSixtyFpsFromTheFirstFrameOn() {
+        var metrics: FrameMetrics? = null
+        for (i in 0 until 180) {
+            metrics = frame(timeNanos = START + i * PERIOD_60HZ, durationMs = 5)!!
+            assertEquals("frame $i", 60.0, metrics.fps, 0.02)
+        }
+
+        assertEquals(60, metrics!!.frameCount)
+        assertEquals(5.0, metrics.averageFrameTimeMs, 0.001)
+        assertEquals(0L, metrics.totalJankCount)
+        assertEquals(180L, metrics.totalFrameCount)
+    }
+
+    @Test
+    fun aFrameExactlyOneWindowOldIsNotCounted() {
+        // 100 Hz for two seconds: 10 ms divides the 1 s window exactly.
+        var metrics: FrameMetrics? = null
+        for (i in 0..200) {
+            metrics = frame(timeNanos = START + i * 10 * NANOS_PER_MS, durationMs = 4)
+        }
+
+        assertEquals(100, metrics!!.frameCount)
+        assertEquals(100.0, metrics.fps, 0.001)
+    }
+
+    @Test
+    fun idleTimeLowersFpsAndIsNotJank() {
+        // Half a second of drawing, 2 s of nothing, then ten frames.
+        for (i in 0 until 30) frame(timeNanos = START + i * PERIOD_60HZ, durationMs = 5)
+        val resume = START + 2_500 * NANOS_PER_MS
+        var metrics: FrameMetrics? = null
+        for (i in 0 until 10) {
+            metrics = frame(timeNanos = resume + i * PERIOD_60HZ, durationMs = 5)
+        }
+
+        // Only the ten new frames are inside the last second.
+        assertEquals(10, metrics!!.frameCount)
+        assertEquals(10.0, metrics.fps, 0.001)
+        assertEquals(5.0, metrics.maxFrameTimeMs, 0.001)
+        assertEquals(0, metrics.jankCount)
+        assertEquals(0L, metrics.totalJankCount)
+        assertEquals(40L, metrics.totalFrameCount)
+    }
+
+    @Test
+    fun withoutADeadlineTheConfiguredThresholdDecidesJank() {
+        // 20 ms * 1.5 = 30 ms, exactly representable.
+        val config = FramePulseConfig(expectedFramePeriodMs = 20f, reportIntervalMs = 0)
+
+        val atThreshold = frame(timeNanos = START, durationMs = 30, config = config)!!
+        val overThreshold = calculator.onMeasuredFrame(
+            frameTimeNanos = START + 40 * NANOS_PER_MS,
+            durationNanos = 30 * NANOS_PER_MS + 1,
+            deadlineNanos = NO_DEADLINE,
+            config = config,
+        )!!
+
+        assertEquals(0L, atThreshold.totalJankCount)
+        assertEquals(1L, overThreshold.totalJankCount)
+        assertEquals(1, overThreshold.jankCount)
+    }
+
+    @Test
+    fun aDeadlineDecidesJankInsteadOfTheConfiguredThreshold() {
+        // The configured threshold is 25 ms.
+        val underDeadline = frame(timeNanos = START, durationMs = 40, deadlineMs = 50)!!
+        val atDeadline = frame(START + 100 * NANOS_PER_MS, durationMs = 50, deadlineMs = 50)!!
+        val overDeadline = frame(START + 200 * NANOS_PER_MS, durationMs = 12, deadlineMs = 11)!!
+
+        // 40 ms is over the 25 ms threshold but inside its 50 ms deadline.
+        assertEquals(0L, underDeadline.totalJankCount)
+        assertEquals(0L, atDeadline.totalJankCount)
+        // 12 ms is under the 25 ms threshold but over its 11 ms deadline.
+        assertEquals(1L, overDeadline.totalJankCount)
+    }
+
+    @Test
+    fun jankLeavesTheWindowButStaysInTheTotal() {
+        frame(timeNanos = START, durationMs = 100)
+        var metrics: FrameMetrics? = null
+        for (i in 1..90) {
+            metrics = frame(timeNanos = START + i * PERIOD_60HZ, durationMs = 5)
+        }
+
+        assertEquals(0, metrics!!.jankCount)
+        assertEquals(1L, metrics.totalJankCount)
+        assertEquals(5.0, metrics.maxFrameTimeMs, 0.001)
+    }
+
+    @Test
+    fun framesWithoutAPositiveDurationAreIgnored() {
+        assertNull(frame(timeNanos = START, durationMs = 0))
+        assertNull(frame(timeNanos = START + PERIOD_60HZ, durationMs = -1))
+
+        val metrics = frame(timeNanos = START + 2 * PERIOD_60HZ, durationMs = 5)!!
+        assertEquals(1L, metrics.totalFrameCount)
+    }
+
+    @Test
+    fun aFrameTimeThatGoesBackwardsIsStillCounted() {
+        frame(timeNanos = START + PERIOD_60HZ, durationMs = 5)
+
+        val metrics = frame(timeNanos = START, durationMs = 7)!!
+
+        assertEquals(2, metrics.frameCount)
+        assertEquals(7.0, metrics.maxFrameTimeMs, 0.001)
+        assertEquals(START + PERIOD_60HZ, metrics.lastFrameTimeNanos)
+    }
+
+    @Test
+    fun reportsAreThrottledToReportInterval() {
+        val config = FramePulseConfig(reportIntervalMs = 50)
+        val reportTimes = mutableListOf<Long>()
+
+        // 100 Hz for one second: frames at 0, 10, 20 ... 1000 ms.
+        for (i in 0..100) {
+            val t = START + i * 10 * NANOS_PER_MS
+            frame(timeNanos = t, durationMs = 4, config = config)
+                ?.let { reportTimes += it.lastFrameTimeNanos }
+        }
+
+        assertEquals(START, reportTimes.first())
+        assertEquals(21, reportTimes.size)
+        reportTimes.zipWithNext { a, b -> assertEquals(50 * NANOS_PER_MS, b - a) }
+    }
+
+    @Test
+    fun windowLargerThanInitialBufferStillRollsOverCorrectly() {
+        // 5 s at 240 Hz needs about 1200 slots, well past the initial capacity.
+        val config = FramePulseConfig(windowDurationMs = 5_000, reportIntervalMs = 0)
+            .withRefreshRate(240f)
+        var metrics: FrameMetrics? = null
+        for (i in 0 until 2_400) {
+            metrics = frame(timeNanos = START + i * PERIOD_240HZ, durationMs = 2, config = config)
+        }
+
+        assertEquals(240.0, metrics!!.fps, 0.25)
+        assertEquals(2_400L, metrics.totalFrameCount)
+        assertEquals(0, metrics.jankCount)
+    }
+
+    private companion object {
+        const val NANOS_PER_MS = 1_000_000L
+        const val PERIOD_60HZ = 16_666_667L
+        const val PERIOD_240HZ = 4_166_667L
+        const val NO_DEADLINE = -1L
+
+        /** An arbitrary non-zero clock value, like a real uptime. */
+        const val START = 7_000_000_000_000L
+    }
+}

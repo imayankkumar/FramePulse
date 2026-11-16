@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal.source
 
 /**
- * Test [FrameSource] that delivers timestamps only when the test calls [emit].
+ * Test [FrameSource] that delivers frames only when the test calls [emit] or [emitMeasured].
  */
 internal class FakeFrameSource : FrameSource {
 
@@ -39,8 +39,18 @@ internal class FakeFrameSource : FrameSource {
         consumer?.onFrameTick(frameTimeNanos)
     }
 
+    /** Delivers a measured frame like a real source would: only while running. */
+    fun emitMeasured(frameTimeNanos: Long, durationNanos: Long, deadlineNanos: Long = -1L) {
+        consumer?.onFrameMeasured(frameTimeNanos, durationNanos, deadlineNanos)
+    }
+
     /** Simulates a callback that was already queued when the source was stopped. */
     fun emitStray(frameTimeNanos: Long) {
         lastConsumer?.onFrameTick(frameTimeNanos)
+    }
+
+    /** Like [emitStray], for a measured frame. */
+    fun emitStrayMeasured(frameTimeNanos: Long, durationNanos: Long) {
+        lastConsumer?.onFrameMeasured(frameTimeNanos, durationNanos, -1L)
     }
 }

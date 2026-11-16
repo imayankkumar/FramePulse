@@ -4,10 +4,11 @@ import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.model.FrameMetrics
 
 /**
- * Computes frame-rate and timing statistics from consecutive frame timestamps.
+ * Computes frame-rate and timing statistics from frame ticks or from measured frames.
  *
  * Responsibilities:
- * - Accept monotonic frame timestamps (e.g. `frameTimeNanos` from a frame source).
+ * - Accept monotonic frame timestamps (e.g. `frameTimeNanos` from a frame source), or frames
+ *   with a measured duration.
  * - Maintain a rolling window aligned with [FramePulseConfig.windowDurationMs].
  * - Produce immutable [FrameMetrics] snapshots for the API layer.
  *
@@ -30,6 +31,23 @@ internal interface FPSCalculator {
      */
     fun onFrame(
         frameTimeNanos: Long,
+        config: FramePulseConfig,
+    ): FrameMetrics?
+
+    /**
+     * Records a frame whose duration the platform measured and returns updated metrics when a
+     * snapshot is ready. Frames with a non-positive duration are ignored.
+     *
+     * @param frameTimeNanos When the frame started.
+     * @param durationNanos How long the frame took.
+     * @param deadlineNanos Time the system allotted to the frame; not positive when unknown.
+     * @param config Active session configuration.
+     * @return Latest [FrameMetrics], or null if no snapshot is due.
+     */
+    fun onMeasuredFrame(
+        frameTimeNanos: Long,
+        durationNanos: Long,
+        deadlineNanos: Long,
         config: FramePulseConfig,
     ): FrameMetrics?
 }

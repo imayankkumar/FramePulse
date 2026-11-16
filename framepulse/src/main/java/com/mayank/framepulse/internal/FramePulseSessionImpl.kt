@@ -4,6 +4,7 @@ import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.api.FramePulseListener
 import com.mayank.framepulse.api.FramePulseSession
 import com.mayank.framepulse.internal.metrics.FPSCalculator
+import com.mayank.framepulse.internal.source.FrameConsumer
 import com.mayank.framepulse.internal.source.RefreshRateSource
 
 /**
@@ -25,11 +26,18 @@ internal class FramePulseSessionImpl(
     config: FramePulseConfig,
     private val listener: FramePulseListener,
     private val calculator: FPSCalculator,
-    monitorFactory: (frameConsumer: (Long) -> Unit) -> FrameMonitor,
+    monitorFactory: (frameConsumer: FrameConsumer) -> FrameMonitor,
     private val refreshRateSource: RefreshRateSource? = null,
 ) : FramePulseSession {
 
-    private val monitor: FrameMonitor = monitorFactory(::onFrame)
+    private val frameConsumer = object : FrameConsumer {
+        override fun onFrameTick(frameTimeNanos: Long) {
+            val metrics = calculator.onFrame(frameTimeNanos, activeConfig) ?: return
+            listener.onMetrics(metrics)
+        }
+    }
+
+    private val monitor: FrameMonitor = monitorFactory(frameConsumer)
 
     /** Config used for the next frame. Replaced only when the display refresh rate changes. */
     private var activeConfig: FramePulseConfig = config
@@ -62,11 +70,6 @@ internal class FramePulseSessionImpl(
 
     override val isRunning: Boolean
         get() = monitor.isRunning
-
-    private fun onFrame(frameTimeNanos: Long) {
-        val metrics = calculator.onFrame(frameTimeNanos, activeConfig) ?: return
-        listener.onMetrics(metrics)
-    }
 
     private fun onRefreshRateChanged(refreshRateHz: Float) {
         if (!monitor.isRunning) return

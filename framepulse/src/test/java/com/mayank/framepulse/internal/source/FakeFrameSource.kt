@@ -13,15 +13,15 @@ internal class FakeFrameSource : FrameSource {
     /** When set, [start] throws this after recording the call. */
     var startFailure: Exception? = null
 
-    private var consumer: ((Long) -> Unit)? = null
+    private var consumer: FrameConsumer? = null
 
     /** The consumer passed to the most recent [start], kept even after [stop]. */
-    private var lastConsumer: ((Long) -> Unit)? = null
+    private var lastConsumer: FrameConsumer? = null
 
     override val isRunning: Boolean
         get() = consumer != null
 
-    override fun start(frameConsumer: (frameTimeNanos: Long) -> Unit) {
+    override fun start(frameConsumer: FrameConsumer) {
         startCount++
         startFailure?.let { throw it }
         check(consumer == null) { "FakeFrameSource already running" }
@@ -36,11 +36,11 @@ internal class FakeFrameSource : FrameSource {
 
     /** Delivers a frame like a real source would: only while running. */
     fun emit(frameTimeNanos: Long) {
-        consumer?.invoke(frameTimeNanos)
+        consumer?.onFrameTick(frameTimeNanos)
     }
 
     /** Simulates a callback that was already queued when the source was stopped. */
     fun emitStray(frameTimeNanos: Long) {
-        lastConsumer?.invoke(frameTimeNanos)
+        lastConsumer?.onFrameTick(frameTimeNanos)
     }
 }

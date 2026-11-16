@@ -3,13 +3,13 @@ package com.mayank.framepulse.internal
 import android.os.Looper
 import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.internal.source.ChoreographerFrameSource
+import com.mayank.framepulse.internal.source.FrameConsumer
 import com.mayank.framepulse.internal.source.FrameSource
 
 /**
  * Default [FrameMonitor] implementation.
  *
- * Owns the [FrameSource] lifecycle and forwards each `frameTimeNanos` to [frameConsumer] while
- * started.
+ * Owns the [FrameSource] lifecycle and forwards each frame to [frameConsumer] while started.
  *
  * Threading: main-thread-confined and not thread-safe. [start] and [stop] check the calling
  * thread; frame delivery is expected on the same thread. No locks are used.
@@ -21,11 +21,18 @@ import com.mayank.framepulse.internal.source.FrameSource
  */
 internal class FrameMonitorImpl(
     private val frameSource: FrameSource = ChoreographerFrameSource(),
-    private val frameConsumer: (frameTimeNanos: Long) -> Unit,
+    private val frameConsumer: FrameConsumer,
     private val isMainThread: () -> Boolean = ::isMainLooperThread,
 ) : FrameMonitor {
 
     private var state: MonitorState = MonitorState.IDLE
+
+    /** Passed to the source. Drops stray callbacks delivered during or after shutdown. */
+    private val sourceConsumer = object : FrameConsumer {
+        override fun onFrameTick(frameTimeNanos: Long) {
+            if (isRunning) frameConsumer.onFrameTick(frameTimeNanos)
+        }
+    }
 
     override val isRunning: Boolean
         get() = state == MonitorState.STARTED
@@ -37,7 +44,7 @@ internal class FrameMonitorImpl(
         state = MonitorState.STARTED
 
         try {
-            frameSource.start(::onFrameTimeNanos)
+            frameSource.start(sourceConsumer)
         } catch (exception: Exception) {
             frameSource.stop()
             state = MonitorState.IDLE
@@ -53,12 +60,6 @@ internal class FrameMonitorImpl(
 
         state = MonitorState.STOPPED
         frameSource.stop()
-    }
-
-    private fun onFrameTimeNanos(frameTimeNanos: Long) {
-        // Ignore stray callbacks delivered during or after shutdown.
-        if (!isRunning) return
-        frameConsumer(frameTimeNanos)
     }
 
     private fun requireIdleForStart() {

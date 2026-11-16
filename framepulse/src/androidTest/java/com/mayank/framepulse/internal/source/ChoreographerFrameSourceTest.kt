@@ -68,11 +68,13 @@ class ChoreographerFrameSourceTest {
     fun stopInsideConsumerEndsFrameDelivery() {
         val firstFrame = CountDownLatch(1)
         onMain {
-            source.start { frameTimeNanos ->
-                frameTimes += frameTimeNanos
-                source.stop()
-                firstFrame.countDown()
-            }
+            source.start(
+                consumer { frameTimeNanos ->
+                    frameTimes += frameTimeNanos
+                    source.stop()
+                    firstFrame.countDown()
+                },
+            )
         }
         awaitFrames(firstFrame)
 
@@ -84,9 +86,9 @@ class ChoreographerFrameSourceTest {
 
     @Test
     fun startWhileRunningThrows() {
-        onMain { source.start { } }
+        onMain { source.start(consumer { }) }
 
-        val error = onMain { runCatching { source.start { } }.exceptionOrNull() }
+        val error = onMain { runCatching { source.start(consumer { }) }.exceptionOrNull() }
 
         assertTrue(error is IllegalStateException)
         assertTrue(onMain { source.isRunning })
@@ -94,7 +96,7 @@ class ChoreographerFrameSourceTest {
 
     @Test
     fun startOffLooperThreadThrows() {
-        assertThrows(IllegalStateException::class.java) { source.start { } }
+        assertThrows(IllegalStateException::class.java) { source.start(consumer { }) }
 
         assertFalse(onMain { source.isRunning })
     }
@@ -113,10 +115,15 @@ class ChoreographerFrameSourceTest {
         assertTrue(onMain { frameTimes.size } > countAfterFailedStop)
     }
 
-    private fun recordingConsumer(frames: CountDownLatch): (Long) -> Unit = { frameTimeNanos ->
-        if (Looper.myLooper() !== Looper.getMainLooper()) deliveredOffMainThread = true
-        frameTimes += frameTimeNanos
-        frames.countDown()
+    private fun recordingConsumer(frames: CountDownLatch): FrameConsumer =
+        consumer { frameTimeNanos ->
+            if (Looper.myLooper() !== Looper.getMainLooper()) deliveredOffMainThread = true
+            frameTimes += frameTimeNanos
+            frames.countDown()
+        }
+
+    private fun consumer(onTick: (Long) -> Unit): FrameConsumer = object : FrameConsumer {
+        override fun onFrameTick(frameTimeNanos: Long) = onTick(frameTimeNanos)
     }
 
     private fun awaitFrames(latch: CountDownLatch) {

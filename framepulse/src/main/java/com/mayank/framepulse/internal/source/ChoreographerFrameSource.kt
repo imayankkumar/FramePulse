@@ -32,13 +32,13 @@ internal class ChoreographerFrameSource(
 
     private var choreographer: Choreographer? = null
     private var frameCallback: Choreographer.FrameCallback? = null
-    private var frameConsumer: ((Long) -> Unit)? = null
+    private var frameConsumer: FrameConsumer? = null
     private var running: Boolean = false
 
     override val isRunning: Boolean
         get() = running
 
-    override fun start(frameConsumer: (frameTimeNanos: Long) -> Unit) {
+    override fun start(frameConsumer: FrameConsumer) {
         assertLooperThread()
         if (running) {
             throw IllegalStateException("FrameSource is already running")
@@ -52,7 +52,7 @@ internal class ChoreographerFrameSource(
                 val consumer = frameConsumer ?: return
 
                 try {
-                    consumer(frameTimeNanos)
+                    consumer.onFrameTick(frameTimeNanos)
                 } finally {
                     if (running) {
                         choreographer.postFrameCallback(this)

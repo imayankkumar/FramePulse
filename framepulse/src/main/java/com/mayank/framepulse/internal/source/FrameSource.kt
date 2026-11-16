@@ -5,7 +5,8 @@ package com.mayank.framepulse.internal.source
  *
  * Responsibilities:
  * - Start and stop a recurring frame callback chain on a target [android.os.Looper].
- * - Deliver each frame signal to a [FrameConsumer].
+ * - Deliver each frame to a [FrameConsumer]: ticks from a vsync source, or measured frames from
+ *   a source that knows how long each frame took.
  *
  * Must not:
  * - Perform FPS calculation, logging policy, or listener dispatch.

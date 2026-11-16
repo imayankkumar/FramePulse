@@ -15,6 +15,8 @@
 >   (`internal` and `internal.metrics`), not the public `core` and `metrics` contracts below, and
 >   there is no separate `FrameClock`, `JankDetector` or aggregator: the rolling
 >   window and jank count live in `internal.metrics.RollingWindowFpsCalculator`.
+> - Frames come from one of two sources: `FrameMetricsFrameSource` (frames the window drew, API
+>   24+) or `ChoreographerFrameSource`. See the README for what each one measures.
 > - A stopped session cannot be restarted. Lifecycle details:
 >   [FRAME_MONITOR.md §14](./FRAME_MONITOR.md#14-framemonitorimpl-implementation-notes).
 

@@ -32,6 +32,16 @@ internal class FrameMonitorImpl(
         override fun onFrameTick(frameTimeNanos: Long) {
             if (isRunning) frameConsumer.onFrameTick(frameTimeNanos)
         }
+
+        override fun onFrameMeasured(
+            frameTimeNanos: Long,
+            durationNanos: Long,
+            deadlineNanos: Long,
+        ) {
+            if (isRunning) {
+                frameConsumer.onFrameMeasured(frameTimeNanos, durationNanos, deadlineNanos)
+            }
+        }
     }
 
     override val isRunning: Boolean

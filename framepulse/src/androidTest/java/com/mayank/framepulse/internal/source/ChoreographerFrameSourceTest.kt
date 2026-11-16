@@ -124,6 +124,12 @@ class ChoreographerFrameSourceTest {
 
     private fun consumer(onTick: (Long) -> Unit): FrameConsumer = object : FrameConsumer {
         override fun onFrameTick(frameTimeNanos: Long) = onTick(frameTimeNanos)
+
+        override fun onFrameMeasured(
+            frameTimeNanos: Long,
+            durationNanos: Long,
+            deadlineNanos: Long,
+        ) = Unit
     }
 
     private fun awaitFrames(latch: CountDownLatch) {

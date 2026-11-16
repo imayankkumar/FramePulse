@@ -1,6 +1,6 @@
 # FramePulse
 
-> A small Android library that measures main-thread frame pacing and jank using `Choreographer`.
+> A small Android library that measures frame times and jank: the frames a window draws on Android 7+, and main-thread frame pacing with `Choreographer` below that.
 
 FramePulse is a Kotlin Android library built to understand Android's rendering pipeline from first principles. Every piece (frame source, rolling-window math, jank heuristic, session lifecycle) is written from scratch and the design decisions are documented in [`docs/`](docs).
 
@@ -26,9 +26,9 @@ FramePulse goes the other way. Its goals are to:
 
 ## ✅ Done
 
-- `Choreographer`-based frame source behind a `FrameSource` abstraction
-- Rolling-window FPS, average and max frame interval
-- Jank detection against a configurable frame budget
+- Drawn-frame source from the platform's frame metrics (API 24+), with a `Choreographer` fallback
+- Rolling-window FPS, average and max frame time
+- Jank detection against the system's frame deadline (API 31+) or a configurable frame budget
 - Optional frame budget that follows display refresh-rate changes during a session
 - Listener API delivering immutable `FrameMetrics` snapshots
 - Explicit session lifecycle (start / stop, no restart)
@@ -39,7 +39,7 @@ FramePulse goes the other way. Its goals are to:
 ## 📋 Planned
 
 - Percentiles (p50 / p95 / p99)
-- `FrameMetrics` (API 24+) frame source with per-stage timings
+- Per-stage timings for slow frames (input, layout, draw)
 - Benchmark module (measure FramePulse's own overhead)
 - Instrumentation tests
 - Maven Central publishing
@@ -48,6 +48,44 @@ FramePulse goes the other way. Its goals are to:
 ---
 
 # What this measures and what it doesn't
+
+FramePulse measures in one of two ways, depending on how you start it.
+
+| You call | Android version | What is measured |
+|----------|-----------------|------------------|
+| `FramePulse.start(activity, …)` | 7.0+ (API 24+) | Frames the activity's window drew |
+| `FramePulse.start(activity, …)` | 5.0–6.0 (API 21–23) | `Choreographer` callbacks |
+| `FramePulse.start(config, …)` or `FramePulse.start(context, display, …)` | any | `Choreographer` callbacks |
+
+## Drawn frames (API 24+)
+
+FramePulse registers a `Window.OnFrameMetricsAvailableListener` on the activity's window. The platform then reports every frame the window draws, with the time it took.
+
+```
+Window draws a frame ──► platform FrameMetrics (TOTAL_DURATION, DEADLINE)
+                                                │
+                              rolling window ──► FPS, jank, max frame time
+```
+
+**It measures**
+
+- **Frame time**: the platform's `TOTAL_DURATION`, from the start of the frame until it is handed to the display system. This includes work off the main thread.
+- **FPS**: the number of frames drawn in the last `windowDurationMs` divided by the window length. An idle window draws nothing, so its FPS falls towards 0.
+- **Jank** on API 31+: a frame that took longer than the `DEADLINE` the system gave it. `jankThresholdMultiplier` is not used.
+- **Jank** on API 24–30: a frame that took longer than `expectedFramePeriodMs × jankThresholdMultiplier`, where the frame budget follows the display's refresh rate.
+
+**It does not**
+
+- **Report while the window is idle.** No frame means no listener call, so the last snapshot stays as it was until the window draws again. Idle time is never counted as jank.
+- Count the first frame of a new window layout. The platform expects that frame to be slow.
+- Work on a software-rendered window. The window must be hardware accelerated, which is the default.
+- See other windows, such as dialogs. Only the activity's own window is measured.
+- Give a per-stage breakdown (input, animation, measure/layout, draw). The platform reports it, but FramePulse does not expose it yet.
+- Say which code caused a slow frame. Use Perfetto or Android Studio's profiler for that.
+
+This mode has been checked with unit tests only, not yet on a device.
+
+## Choreographer callbacks
 
 FramePulse posts a `Choreographer.FrameCallback` on the main thread and re-posts it every frame. Each callback delivers `frameTimeNanos`, the vsync time of the frame being processed.
 
@@ -69,12 +107,12 @@ VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(fram
 
 - **Rendered frames.** Because the callback re-posts itself, Choreographer keeps requesting vsync, so callbacks arrive at the refresh rate **even when nothing on screen changes**. An idle app reports FPS close to the refresh rate. FramePulse cannot tell an idle frame from a drawn one.
 - RenderThread, GPU, or SurfaceFlinger composition time. A frame can be on time on the main thread and still be late on screen.
-- Per-stage breakdown (input, animation, measure/layout, draw). That needs `FrameMetrics` (API 24+) or JankStats.
 - Which code caused a slow frame. Use Perfetto or Android Studio's profiler for that.
 
 **Known limitations**
 
-- **Refresh-rate changes need the `Display` overload.** `FramePulse.start(config, listener)` uses a fixed budget for the whole session. On variable-refresh-rate displays (for example Pixel "Smooth Display"), the system can drop from 120 Hz to 60 Hz when the screen is idle. With a fixed 120 Hz budget, every 60 Hz frame then counts as jank. On a Pixel 6 Pro this showed up as ~65 FPS and dozens of "janks" per second on an idle screen. `FramePulse.start(context, display, config, listener)` follows the rate reported by `Display.getRefreshRate()` through `DisplayManager.DisplayListener` instead. Changes the system does not report there (for example per-app frame-rate overrides) are not seen, and the interval that spans a switch is judged against the new budget. This has been checked with unit tests only, not yet on a device.
+- **A pause counts as one long frame.** If no callback arrives for a while (for example the screen turns off while the session is running), the gap is recorded as a single janky frame. Stop the session in `onStop`.
+- **Refresh-rate changes need the `Activity` or `Display` overload.** `FramePulse.start(config, listener)` uses a fixed budget for the whole session. On variable-refresh-rate displays (for example Pixel "Smooth Display"), the system can drop from 120 Hz to 60 Hz when the screen is idle. With a fixed 120 Hz budget, every 60 Hz frame then counts as jank. On a Pixel 6 Pro this showed up as ~65 FPS and dozens of "janks" per second on an idle screen. `FramePulse.start(context, display, config, listener)` follows the rate reported by `Display.getRefreshRate()` through `DisplayManager.DisplayListener` instead. Changes the system does not report there (for example per-app frame-rate overrides) are not seen, and the interval that spans a switch is judged against the new budget. This has been checked with unit tests only, not yet on a device.
 - **Observer effect.** The listener runs on the main thread, and whatever it does (for example updating UI) is measured too. In the debug build of the demo app on a Pixel 6 Pro, the demo's own metric updates (4 per second) were slow enough to register as about 4 janks per second while idle; `adb shell dumpsys gfxinfo` reported the same frames as janky ("Slow UI thread").
 - **Power.** Keeping a frame callback posted keeps vsync running. Stop the session when you don't need it.
 
@@ -122,9 +160,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // The frame budget follows this display's refresh rate, including mid-session changes.
-        // Activity.getDisplay() is API 30+; use windowManager.defaultDisplay below that.
-        session = FramePulse.start(this, display!!, FramePulseConfig.DEFAULT) { metrics ->
+        // Measures the frames this activity's window draws (API 24+).
+        session = FramePulse.start(this, FramePulseConfig.DEFAULT) { metrics ->
             Log.d("FramePulse", "fps=%.1f jank=%d max=%.1fms".format(
                 metrics.fps, metrics.jankCount, metrics.maxFrameTimeMs))
         }
@@ -142,20 +179,20 @@ class MainActivity : ComponentActivity() {
 
 | Field | Meaning |
 |-------|---------|
-| `fps` | Frame intervals in the window ÷ their total duration |
-| `frameCount` | Frame intervals in the window |
-| `averageFrameTimeMs` / `maxFrameTimeMs` | Mean / longest interval in the window |
-| `jankCount` | Intervals in the window longer than the jank threshold |
+| `fps` | Frames per second over the window (see the two modes above) |
+| `frameCount` | Frames in the window |
+| `averageFrameTimeMs` / `maxFrameTimeMs` | Mean / longest frame time in the window |
+| `jankCount` | Frames in the window that were jank |
 | `totalFrameCount` / `totalJankCount` | Since the session started |
-| `lastFrameTimeNanos` | `frameTimeNanos` of the newest frame (same clock as `System.nanoTime()`) |
+| `lastFrameTimeNanos` | Time of the newest frame, in nanoseconds |
 
 `FramePulseConfig` options:
 
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `windowDurationMs` | 1000 | Rolling window length |
-| `expectedFramePeriodMs` | 16.67 | Frame budget; set it with `withRefreshRate(hz)`. Replaced by the display's rate when you pass a `Display` |
-| `jankThresholdMultiplier` | 1.5 | Jank if interval > budget × multiplier (must be ≥ 1.0) |
+| `expectedFramePeriodMs` | 16.67 | Frame budget; set it with `withRefreshRate(hz)`. Replaced by the display's rate when you pass an `Activity` or a `Display` |
+| `jankThresholdMultiplier` | 1.5 | Jank if frame time > budget × multiplier (must be ≥ 1.0). Not used for drawn frames on API 31+ |
 | `reportIntervalMs` | 250 | Minimum time between listener calls; 0 = every frame |
 
 ---
@@ -163,15 +200,15 @@ class MainActivity : ComponentActivity() {
 # Threading and lifecycle
 
 - **Main-thread-confined.** Call `FramePulse.start()` and `session.stop()` on the main thread; both throw `IllegalStateException` otherwise. A rejected `stop()` leaves the session running, so you can still stop it from the main thread. FramePulse is not thread-safe and uses no locks.
-- **The listener runs on the main thread**, synchronously inside the frame callback. Keep it cheap. `FrameMetrics` is immutable, so you can hand it to another thread.
-- **You own the lifecycle.** FramePulse does not observe Activity or process lifecycle. Every `start()` needs a matching `stop()`. Calling `stop()` more than once is fine, and you can call it from inside the listener.
+- **The listener runs on the main thread.** Keep it cheap. `FrameMetrics` is immutable, so you can hand it to another thread.
+- **You own the lifecycle.** FramePulse does not observe Activity or process lifecycle. Every `start()` needs a matching `stop()`. A session started with an `Activity` holds its window until you stop it. Calling `stop()` more than once is fine, and you can call it from inside the listener.
 - **No restart.** A stopped session stays stopped; call `FramePulse.start()` again for a new one.
 
 ---
 
 # Demo app
 
-`:app` shows live FPS, jank in the window, jank since start and the max frame interval. It also has a **Block main thread for 200 ms** button: press it and you'll see a ~200 ms interval and the jank count go up.
+`:app` shows live FPS, jank in the window, jank since start and the max frame time for the frames its window draws. It also has a **Block main thread for 200 ms** button: press it and the next frame takes about 200 ms, so the jank count goes up. On an idle screen the FPS is low, because the window only draws when the numbers change.
 
 ```bash
 ./gradlew :app:installDebug
@@ -183,16 +220,18 @@ class MainActivity : ComponentActivity() {
 
 ```
 App
- │  FramePulse.start(config, listener)
+ │  FramePulse.start(activity, config, listener)
  ▼
 FramePulseSessionImpl ──────────────► FramePulseListener.onMetrics(FrameMetrics)
  │                                          ▲
  ▼                                          │
 FrameMonitorImpl (IDLE → STARTED → STOPPED) │
- │  frameTimeNanos                          │
+ │  frames                                  │
  ├──────────────► RollingWindowFpsCalculator┘
  ▼
-ChoreographerFrameSource ──► Choreographer.postFrameCallback (re-posted every frame)
+FrameSource, one of:
+ ├─ FrameMetricsFrameSource ──► Window.addOnFrameMetricsAvailableListener (drawn frames, API 24+)
+ └─ ChoreographerFrameSource ──► Choreographer.postFrameCallback (re-posted every frame)
 ```
 
 ---
@@ -207,7 +246,7 @@ FramePulse
 ├── framepulse/
 │   ├── api/             Public API: FramePulse, config, listener, session
 │   ├── internal/        Implementation (not public): FrameMonitor, FPSCalculator, session,
-│   │                    Choreographer and refresh-rate sources
+│   │                    frame and refresh-rate sources
 │   └── model/           Immutable FrameMetrics
 │
 ├── docs/

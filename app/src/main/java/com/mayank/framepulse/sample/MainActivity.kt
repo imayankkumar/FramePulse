@@ -2,7 +2,6 @@ package com.mayank.framepulse.sample
 
 import android.os.Build
 import android.os.Bundle
-import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -36,7 +35,7 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
 
     private var session: FramePulseSession? = null
-    private var config by mutableStateOf(FramePulseConfig.DEFAULT)
+    private val config = FramePulseConfig.DEFAULT
     private var metrics by mutableStateOf<FrameMetrics?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,9 +57,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        config = FramePulseConfig.DEFAULT.withRefreshRate(requestHighestRefreshRate())
         metrics = null
-        session = FramePulse.start(config) { metrics = it }
+        // Passing the activity measures the frames its window draws (API 24+) and keeps the
+        // frame budget in step with the display's refresh rate.
+        session = FramePulse.start(this, config) { metrics = it }
     }
 
     override fun onStop() {
@@ -69,42 +69,9 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    /**
-     * FramePulse compares frame intervals against a fixed expected period. Displays with a
-     * variable refresh rate (for example Pixel "Smooth Display") drop to a lower rate when the
-     * screen is idle, and those slower frames would then all count as jank. The demo therefore
-     * asks the window for the highest-refresh mode at the current resolution and uses that
-     * rate as the frame budget. The system treats this as a preference, not a guarantee.
-     */
-    private fun requestHighestRefreshRate(): Float {
-        val display = currentDisplay() ?: return DEFAULT_REFRESH_RATE_HZ
-        val current = display.mode
-        val best = display.supportedModes
-            .filter {
-                it.physicalWidth == current.physicalWidth &&
-                    it.physicalHeight == current.physicalHeight
-            }
-            .maxByOrNull { it.refreshRate }
-            ?: current
-        window.attributes = window.attributes.also { it.preferredDisplayModeId = best.modeId }
-        return best.refreshRate.takeIf { it > 0f } ?: DEFAULT_REFRESH_RATE_HZ
-    }
-
-    private fun currentDisplay(): Display? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            display
-        } else {
-            @Suppress("DEPRECATION")
-            windowManager.defaultDisplay
-        }
-
-    /** Deliberately freezes the main thread so the next frame interval is long (jank). */
+    /** Deliberately freezes the main thread so the next frame takes long (jank). */
     private fun blockMainThread(durationMs: Long) {
         Thread.sleep(durationMs)
-    }
-
-    private companion object {
-        const val DEFAULT_REFRESH_RATE_HZ = 60f
     }
 }
 
@@ -121,11 +88,11 @@ private fun MetricsScreen(
     ) {
         Text("FramePulse demo", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Refresh rate %.0f Hz · jank threshold %.1f ms".format(
-                Locale.US,
-                1_000f / config.expectedFramePeriodMs,
-                config.jankThresholdMs,
-            ),
+            if (MEASURES_DRAWN_FRAMES) {
+                "Measuring drawn frames"
+            } else {
+                "Measuring Choreographer callbacks"
+            },
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -136,7 +103,7 @@ private fun MetricsScreen(
                 "%.1f".format(Locale.US, metrics.fps))
             Metric("Jank in window", metrics.jankCount.toString())
             Metric("Jank since start", metrics.totalJankCount.toString())
-            Metric("Max frame interval", "%.1f ms".format(Locale.US, metrics.maxFrameTimeMs))
+            Metric("Max frame time", "%.1f ms".format(Locale.US, metrics.maxFrameTimeMs))
         }
 
         Button(onClick = { onBlockMainThread(BLOCK_DURATION_MS) }) {
@@ -144,9 +111,15 @@ private fun MetricsScreen(
         }
 
         Text(
-            "FramePulse counts main-thread Choreographer callbacks, which keep arriving at the " +
-                "refresh rate even when nothing redraws. An idle screen therefore shows FPS " +
-                "close to the refresh rate.",
+            if (MEASURES_DRAWN_FRAMES) {
+                "FramePulse counts the frames this window draws. An idle screen draws almost " +
+                    "nothing, so the FPS is low until something animates. These numbers only " +
+                    "update when a frame is drawn."
+            } else {
+                "FramePulse counts main-thread Choreographer callbacks, which keep arriving at " +
+                    "the refresh rate even when nothing redraws. An idle screen therefore shows " +
+                    "FPS close to the refresh rate."
+            },
             style = MaterialTheme.typography.bodySmall,
         )
     }
@@ -161,3 +134,6 @@ private fun Metric(label: String, value: String) {
 }
 
 private const val BLOCK_DURATION_MS = 200L
+
+/** FramePulse.start(activity, ...) reads the platform's frame metrics from API 24 on. */
+private val MEASURES_DRAWN_FRAMES = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N

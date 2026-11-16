@@ -10,9 +10,10 @@ import com.mayank.framepulse.internal.source.RefreshRateSource
 /**
  * Internal [FramePulseSession]: wires a [FrameMonitor] to an [FPSCalculator] and a listener.
  *
- * Each frame tick from the monitor goes to the calculator; when the calculator returns a
- * snapshot, the listener is called synchronously on the same (main) thread. Calling [stop]
- * from inside the listener is allowed and prevents any further calls.
+ * Each frame from the monitor (a tick or a measured frame, depending on the frame source) goes
+ * to the calculator; when the calculator returns a snapshot, the listener is called
+ * synchronously on the same (main) thread. Calling [stop] from inside the listener is allowed
+ * and prevents any further calls.
  *
  * When a [refreshRateSource] is given, the frame budget follows the display: the rate read at
  * [start] replaces [FramePulseConfig.expectedFramePeriodMs], and every later change replaces it
@@ -33,6 +34,20 @@ internal class FramePulseSessionImpl(
     private val frameConsumer = object : FrameConsumer {
         override fun onFrameTick(frameTimeNanos: Long) {
             val metrics = calculator.onFrame(frameTimeNanos, activeConfig) ?: return
+            listener.onMetrics(metrics)
+        }
+
+        override fun onFrameMeasured(
+            frameTimeNanos: Long,
+            durationNanos: Long,
+            deadlineNanos: Long,
+        ) {
+            val metrics = calculator.onMeasuredFrame(
+                frameTimeNanos,
+                durationNanos,
+                deadlineNanos,
+                activeConfig,
+            ) ?: return
             listener.onMetrics(metrics)
         }
     }

@@ -14,15 +14,17 @@ package com.mayank.framepulse.api
  *
  * With `FramePulse.start(config, listener)` the frame budget is fixed: the caller supplies it via
  * [expectedFramePeriodMs] or [withRefreshRate]. The default assumes a 60 Hz display. With the
- * `FramePulse.start(context, display, config, listener)` overload, the display's refresh rate
- * replaces [expectedFramePeriodMs] at start and whenever it changes.
+ * overloads that take an `Activity` or a `Display`, the display's refresh rate replaces
+ * [expectedFramePeriodMs] at start and whenever it changes.
  *
  * @property windowDurationMs Length of the rolling window used for FPS, average and max frame
  *   time, and [com.mayank.framepulse.model.FrameMetrics.jankCount]. Must be > 0.
  * @property expectedFramePeriodMs Expected time between frames, i.e. `1000 / refreshRateHz`.
  *   Must be > 0.
- * @property jankThresholdMultiplier A frame interval counts as jank when it is strictly greater
- *   than `expectedFramePeriodMs * jankThresholdMultiplier`. Must be >= 1.0. Default 1.5.
+ * @property jankThresholdMultiplier A frame counts as jank when its frame time is strictly
+ *   greater than `expectedFramePeriodMs * jankThresholdMultiplier`. Must be >= 1.0. Default 1.5.
+ *   Not used for a session started with an `Activity` on API 31 or higher: there a frame is jank
+ *   when it took longer than the deadline the system gave it.
  * @property reportIntervalMs Minimum time between two listener calls, measured on the frame
  *   clock. 0 reports on every frame. Must be >= 0.
  */

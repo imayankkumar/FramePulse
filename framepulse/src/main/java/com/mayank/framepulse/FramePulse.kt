@@ -26,6 +26,9 @@ import com.mayank.framepulse.internal.source.RefreshRateSource
  * Every overload takes an optional [JankFrameListener] that is called once for each jank frame,
  * in addition to the [FramePulseListener] that receives the rolling-window metrics.
  *
+ * From Java the `start` methods are static, with overloads that leave out the optional
+ * arguments: `FramePulse.start(activity, metrics -> { ... })`.
+ *
  * Threading contract: FramePulse is main-thread-confined and is not thread-safe. Call [start]
  * and [FramePulseSession.stop] on the main thread. The listeners are invoked on the main thread,
  * so keep them cheap.
@@ -73,6 +76,8 @@ public object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
+    @JvmStatic
+    @JvmOverloads
     public fun start(
         activity: Activity,
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
@@ -111,6 +116,8 @@ public object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
+    @JvmStatic
+    @JvmOverloads
     public fun start(
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
         jankFrameListener: JankFrameListener? = null,
@@ -147,6 +154,8 @@ public object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
+    @JvmStatic
+    @JvmOverloads
     public fun start(
         context: Context,
         display: Display,

@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # Libraries and plugins in gradle/libs.versions.toml, and the Gradle wrapper.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      androidx:
+        patterns:
+          - "androidx.*"
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+    ignore:
+      # 0.36.0 and later need Gradle 9 and Kotlin 2.2.
+      - dependency-name: "com.vanniktech.maven.publish*"
+        versions: [">= 0.36.0"]
+
+  # The actions used by the CI workflow.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

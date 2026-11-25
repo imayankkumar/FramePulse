@@ -182,8 +182,10 @@ class MainActivity : ComponentActivity() {
 | `fps` | Frames per second over the window (see the two modes above) |
 | `frameCount` | Frames in the window |
 | `averageFrameTimeMs` / `maxFrameTimeMs` | Mean / longest frame time in the window |
+| `p50FrameTimeMs` / `p90FrameTimeMs` / `p95FrameTimeMs` / `p99FrameTimeMs` | Frame time percentiles in the window (nearest rank) |
 | `jankCount` | Frames in the window that were jank |
-| `totalFrameCount` / `totalJankCount` | Since the session started |
+| `frozenFrameCount` | Frames in the window that took longer than 700 ms (`FrameMetrics.FROZEN_FRAME_THRESHOLD_MS`) |
+| `totalFrameCount` / `totalJankCount` / `totalFrozenFrameCount` | Since the session started |
 | `lastFrameTimeNanos` | Time of the newest frame, in nanoseconds |
 
 `FramePulseConfig` options:

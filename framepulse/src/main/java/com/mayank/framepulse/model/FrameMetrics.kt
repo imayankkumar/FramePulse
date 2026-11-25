@@ -30,10 +30,20 @@ package com.mayank.framepulse.model
  * @property frameCount Number of frames in the window.
  * @property averageFrameTimeMs Mean frame time in the window, in milliseconds.
  * @property maxFrameTimeMs Longest frame time in the window, in milliseconds.
+ * @property p50FrameTimeMs Median frame time in the window, in milliseconds.
+ * @property p90FrameTimeMs 90th percentile frame time in the window, in milliseconds.
+ * @property p95FrameTimeMs 95th percentile frame time in the window, in milliseconds.
+ * @property p99FrameTimeMs 99th percentile frame time in the window, in milliseconds.
+ *   Percentiles use the nearest-rank method: the value is always one of the frame times in the
+ *   window, and with fewer than 100 frames [p99FrameTimeMs] equals [maxFrameTimeMs].
  * @property jankCount Frames in the window that were jank: over the system's deadline where the
  *   platform reports one, otherwise over the configured jank threshold.
+ * @property frozenFrameCount Frames in the window that took longer than
+ *   [FROZEN_FRAME_THRESHOLD_MS]. Counted independently of [jankCount], although a frozen
+ *   frame is normally jank as well.
  * @property totalFrameCount Frames observed since the session started.
  * @property totalJankCount Jank frames observed since the session started.
+ * @property totalFrozenFrameCount Frozen frames observed since the session started.
  */
 public data class FrameMetrics(
     val lastFrameTimeNanos: Long,
@@ -41,7 +51,21 @@ public data class FrameMetrics(
     val frameCount: Int,
     val averageFrameTimeMs: Double,
     val maxFrameTimeMs: Double,
+    val p50FrameTimeMs: Double,
+    val p90FrameTimeMs: Double,
+    val p95FrameTimeMs: Double,
+    val p99FrameTimeMs: Double,
     val jankCount: Int,
+    val frozenFrameCount: Int,
     val totalFrameCount: Long,
     val totalJankCount: Long,
-)
+    val totalFrozenFrameCount: Long,
+) {
+    public companion object {
+        /**
+         * A frame that takes longer than this many milliseconds is frozen. This matches the
+         * frozen frame definition used by Android vitals.
+         */
+        public const val FROZEN_FRAME_THRESHOLD_MS: Long = 700L
+    }
+}

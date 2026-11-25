@@ -303,7 +303,7 @@ See [Component responsibility matrix](#c-component-responsibility-matrix) for th
 ### Jank heuristic (v0.1)
 
 - Jank frame if `Δt > framePeriod × jankMultiplier` (default multiplier **1.5** or **2.0** — pick one, document, make configurable).
-- Track: `jankCount`, `maxFrameTimeMs`, `p95` later.
+- Track: `jankCount`, `maxFrameTimeMs`, p50/p90/p95/p99 frame times, and frozen frames (over 700 ms).
 
 ### Why not only average FPS
 

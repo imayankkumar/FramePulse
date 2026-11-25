@@ -51,8 +51,9 @@ public object FramePulse {
      *
      * On API 24 and higher the platform reports each frame the window draws and how long it
      * took (`Window.OnFrameMetricsAvailableListener`):
-     * - Only drawn frames are counted. An idle window draws nothing, so the listener is not
-     *   called while it is idle, and idle time is never counted as jank.
+     * - Only drawn frames are counted, and idle time is never counted as jank. When the window
+     *   stops drawing, the listener is called once more with the frames drawn since its last
+     *   call (about 100 ms later), and then not again until the window draws.
      * - The first frame of a new window layout is skipped; the platform expects it to be slow.
      * - On API 31 and higher a frame is jank when it took longer than the deadline the system
      *   gave it. [FramePulseConfig.jankThresholdMultiplier] is not used there.

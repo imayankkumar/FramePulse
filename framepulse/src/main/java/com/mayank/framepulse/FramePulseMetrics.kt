@@ -10,8 +10,11 @@ package com.mayank.framepulse
  * - A frame is one frame the activity's window drew. Its frame time is the duration the platform
  *   measured, from the start of the frame until it was handed to the display system.
  * - [fps] is the number of frames drawn in the window divided by the window length. An idle
- *   window draws nothing, so its FPS falls towards 0 and no new snapshot is delivered until it
- *   draws again.
+ *   window draws nothing, so its FPS falls towards 0.
+ * - When the window stops drawing, the frames drawn since the last snapshot are reported in one
+ *   more snapshot, about 100 ms later and not before [FramePulseConfig.reportIntervalMs] has
+ *   passed. Its window still ends at the newest frame. No further snapshot is delivered until
+ *   the window draws again.
  *
  * Any other session (`Choreographer` callbacks):
  * - A frame is one `Choreographer` frame callback on the main thread. Its frame time is the

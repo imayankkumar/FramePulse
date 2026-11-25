@@ -26,6 +26,7 @@ class FramePulseSessionSummaryTest {
         },
         isMainThread = { onMainThread },
         nanoTime = { now },
+        postDelayedToMainThread = { _, _ -> },
     ).also { it.start() }
 
     @Test

@@ -74,4 +74,23 @@ internal interface FPSCalculator {
      * deadline where one was given, otherwise [FramePulseConfig.jankThresholdMs].
      */
     val lastFrameBudgetNanos: Double
+
+    /** Whether a frame was recorded after the last snapshot was returned. */
+    val hasUnreportedFrames: Boolean
+
+    /**
+     * Earliest time, on the frame clock, at which the next snapshot may be returned. Only
+     * meaningful while [hasUnreportedFrames] is true.
+     */
+    fun nextReportDueNanos(config: FramePulseConfig): Long
+
+    /**
+     * Returns a snapshot of the window that ends at the newest recorded frame, for frames that
+     * no snapshot has covered yet because no later frame arrived. Used when a window that draws
+     * only on change goes idle. Returns null when [hasUnreportedFrames] is false.
+     *
+     * @param nowNanos Current time on the frame clock; the next report is due
+     *   [FramePulseConfig.reportIntervalMs] after it.
+     */
+    fun reportUnreportedFrames(nowNanos: Long, config: FramePulseConfig): FramePulseMetrics?
 }

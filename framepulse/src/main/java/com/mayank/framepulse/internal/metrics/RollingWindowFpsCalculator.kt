@@ -35,6 +35,8 @@ import java.util.Arrays
  *
  * Snapshots are produced on the first frame time and then at most once per
  * [FramePulseConfig.reportIntervalMs] (measured on the frame clock). Other calls return null.
+ * Frames recorded after the last snapshot are reported by the next one, or by
+ * [reportUnreportedFrames] when no further frame arrives.
  *
  * Threading: not thread-safe. Called only from the frame source's thread (the main thread).
  *
@@ -65,6 +67,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
     private var totalFrameCount = 0L
     private var totalJankCount = 0L
     private var totalFrozenCount = 0L
+    private var unreportedFrames = false
 
     override var lastFrameWasRecorded: Boolean = false
         private set
@@ -125,9 +128,35 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
 
         if (!isReportDue(time, config)) return null
         lastReportTimeNanos = time
+        return measuredSnapshot(config)
+    }
 
+    override val hasUnreportedFrames: Boolean
+        get() = unreportedFrames
+
+    override fun nextReportDueNanos(config: FramePulseConfig): Long =
+        lastReportTimeNanos + config.reportIntervalMs * NANOS_PER_MILLI
+
+    override fun reportUnreportedFrames(
+        nowNanos: Long,
+        config: FramePulseConfig,
+    ): FramePulseMetrics? {
+        if (!unreportedFrames) return null
+        lastReportTimeNanos = nowNanos
+        return if (firstMeasuredTimeNanos != NO_TIMESTAMP) {
+            measuredSnapshot(config)
+        } else {
+            snapshot(lastFrameTimeNanos, spanNanos = windowDurationSumNanos)
+        }
+    }
+
+    /** Snapshot of measured frames for the window that ends at the newest frame. */
+    private fun measuredSnapshot(config: FramePulseConfig): FramePulseMetrics {
+        val time = lastFrameTimeNanos
+        val windowNanos = windowNanos(config)
         // The newest frame takes up at least one refresh period of the session's age.
         val periodNanos = (config.expectedFramePeriodMs.toDouble() * NANOS_PER_MILLI).toLong()
+        val durationNanos = lastFrameDurationNanos
         val newest = if (durationNanos > periodNanos) durationNanos else periodNanos
         val sessionAgeNanos = time - firstMeasuredTimeNanos + newest
         val span = if (sessionAgeNanos < windowNanos) sessionAgeNanos else windowNanos
@@ -152,6 +181,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         lastFrameWasJank = isJank
         lastFrameDurationNanos = duration
         lastFrameBudgetNanos = budgetNanos
+        unreportedFrames = true
 
         if (size == times.size) grow()
         val index = (head + size) % times.size
@@ -205,6 +235,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
      * @param spanNanos The length of time the frames in the window are counted over.
      */
     private fun snapshot(frameTimeNanos: Long, spanNanos: Long): FramePulseMetrics {
+        unreportedFrames = false
         val sorted = sortedDurations
         for (i in 0 until size) sorted[i] = durations[(head + i) % durations.size]
         Arrays.sort(sorted, 0, size)

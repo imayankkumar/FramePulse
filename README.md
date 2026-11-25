@@ -445,7 +445,7 @@ signing.password=<key password>
 signing.secretKeyRingFile=<path to the exported secret key ring>
 ```
 
-Then set the version in `framepulse/build.gradle.kts`, and:
+Then set the version in `framepulse/build.gradle.kts`, give it a dated heading in [CHANGELOG.md](CHANGELOG.md), and:
 
 ```bash
 # Upload the signed release; it waits in the Central Portal until you publish it there
@@ -582,11 +582,14 @@ Publications are signed only when a signing key is configured, and Maven Central
 ├── gradle
 │   └── libs.versions.toml
 ├── build.gradle.kts
+├── CHANGELOG.md
+├── CONTRIBUTING.md
 ├── gradle.properties
 ├── gradlew
 ├── gradlew.bat
 ├── LICENSE
 ├── README.md
+├── SECURITY.md
 └── settings.gradle.kts
 ```
 
@@ -626,4 +629,4 @@ Publications are signed only when a signing key is configured, and Maven Central
 
 ## Contributing to FramePulse
 
-All pull requests are welcome.
+All pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and write commits, [CHANGELOG.md](CHANGELOG.md) for what changed in each version, and [SECURITY.md](SECURITY.md) for how to report a security problem privately.

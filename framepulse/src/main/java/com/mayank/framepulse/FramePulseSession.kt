@@ -1,32 +1,25 @@
 package com.mayank.framepulse
 
-
 /**
- * Handle for an active FramePulse monitoring session.
+ * Handle for a running FramePulse monitoring session, returned by [FramePulse.start].
  *
- * Responsibilities:
- * - Represent session lifecycle (running vs stopped).
- * - Provide explicit [stop] so frame callbacks are unregistered and resources are released.
- *
- * Must not:
- * - Expose internal monitor or metrics types to callers.
- * - Restart itself; start a new session via [FramePulse.start] instead.
- *
- * Future role:
- * - Owned by host apps; stopped from lifecycle boundaries (e.g. when UI is no longer visible).
+ * Stop it with [stop] when monitoring is no longer needed. A session started with an `Activity`
+ * also stops itself when that activity is destroyed. A stopped session cannot be restarted; call
+ * [FramePulse.start] again. Sessions created by [FramePulse.monitorActivities] are started and
+ * stopped for you.
  */
 public interface FramePulseSession {
 
     /**
-     * Stops monitoring and prevents further listener invocations. Idempotent.
+     * Stops monitoring. Idempotent, and safe to call from any thread.
      *
-     * Main thread only. On a running session, a call from another thread throws
-     * [IllegalStateException] and changes nothing: the session keeps running, so it can still be
-     * stopped from the main thread. On a session that is not running, this is a no-op on any thread.
+     * No listener call starts after this returns. On the main thread the frame and display
+     * listeners are unregistered right away; from another thread that part is posted to the main
+     * thread. [summary] covers the session up to the moment of the first call.
      */
     public fun stop()
 
-    /** Whether the session is actively receiving frame signals. */
+    /** Whether the session is running: started and not yet stopped. Readable from any thread. */
     public val isRunning: Boolean
 
     /**

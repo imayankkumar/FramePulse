@@ -19,6 +19,7 @@ class FramePulseSessionRefreshRateTest {
     private val received = mutableListOf<FramePulseMetrics>()
     private var onMainThread = true
     private var now = 0L
+    private val posted = mutableListOf<Runnable>()
 
     private fun newSession(
         refreshRateSource: FakeRefreshRateSource?,
@@ -31,6 +32,8 @@ class FramePulseSessionRefreshRateTest {
             FrameMonitorImpl(frames, consumer, isMainThread = { onMainThread })
         },
         refreshRateSource = refreshRateSource,
+        isMainThread = { onMainThread },
+        postToMainThread = { posted += it },
     )
 
     /** Emits one frame [intervalNanos] after the previous one (the first frame is at 0). */
@@ -152,18 +155,17 @@ class FramePulseSessionRefreshRateTest {
     }
 
     @Test
-    fun stopOffTheMainThreadKeepsTheRefreshSourceRegistered() {
+    fun stopOffTheMainThreadUnregistersTheRefreshSourceOnTheMainThread() {
         val display = FakeRefreshRateSource(60f)
         val session = newSession(display)
         session.start()
 
         onMainThread = false
-        assertThrows(IllegalStateException::class.java) { session.stop() }
+        session.stop()
         assertTrue(display.isListening)
-        assertEquals(0, display.stopCount)
 
         onMainThread = true
-        session.stop()
+        posted.single().run()
         assertFalse(display.isListening)
         assertEquals(1, display.stopCount)
     }

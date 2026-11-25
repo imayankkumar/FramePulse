@@ -18,6 +18,8 @@ class FramePulseSessionImplTest {
     private val source = FakeFrameSource()
     private val received = mutableListOf<FramePulseMetrics>()
     private var onMainThread = true
+    private val posted = mutableListOf<Runnable>()
+    private var stoppedCalls = 0
 
     private fun newSession(
         listener: FramePulseListener = FramePulseListener { received += it },
@@ -28,7 +30,17 @@ class FramePulseSessionImplTest {
         monitorFactory = { consumer ->
             FrameMonitorImpl(source, consumer, isMainThread = { onMainThread })
         },
+        isMainThread = { onMainThread },
+        postToMainThread = { posted += it },
+        onStopped = { stoppedCalls++ },
     )
+
+    private fun runPosted() {
+        onMainThread = true
+        val tasks = posted.toList()
+        posted.clear()
+        tasks.forEach { it.run() }
+    }
 
     @Test
     fun startRegistersSourceAndListenerReceivesMetrics() {
@@ -133,26 +145,53 @@ class FramePulseSessionImplTest {
     }
 
     @Test
-    fun stopOffTheMainThreadThrowsAndLeavesTheSessionRunning() {
+    fun stopOnTheMainThreadUnregistersAtOnce() {
+        val session = newSession()
+        session.start()
+
+        session.stop()
+
+        assertEquals(1, source.stopCount)
+        assertEquals(1, stoppedCalls)
+        assertTrue(posted.isEmpty())
+    }
+
+    @Test
+    fun stopOffTheMainThreadTakesEffectAtOnceAndUnregistersLater() {
         val session = newSession()
         session.start()
         source.emit(0L)
 
         onMainThread = false
-        assertThrows(IllegalStateException::class.java) { session.stop() }
-
-        // Nothing changed: the source is still registered and frames still reach the listener.
-        assertTrue(session.isRunning)
-        assertEquals(0, source.stopCount)
-        source.emit(PERIOD)
-        assertEquals(1, received.size)
-
-        // A retry on the main thread stops the source exactly once.
-        onMainThread = true
         session.stop()
 
+        // Stopped for callers right away; frames still queued on the main thread are dropped.
         assertFalse(session.isRunning)
+        source.emit(PERIOD)
+        assertTrue(received.isEmpty())
+        assertEquals(0, source.stopCount)
+        assertEquals(1, posted.size)
+
+        runPosted()
+
         assertEquals(1, source.stopCount)
+        assertEquals(1, stoppedCalls)
+    }
+
+    @Test
+    fun repeatedStopsFromAnyThreadUnregisterOnce() {
+        val session = newSession()
+        session.start()
+
+        onMainThread = false
+        session.stop()
+        session.stop()
+        onMainThread = true
+        session.stop()
+        runPosted()
+
+        assertEquals(1, source.stopCount)
+        assertEquals(1, stoppedCalls)
     }
 
     @Test
@@ -171,6 +210,7 @@ class FramePulseSessionImplTest {
 
         assertFalse(stopped.isRunning)
         assertEquals(1, source.stopCount)
+        assertTrue(posted.isEmpty())
     }
 
     @Test

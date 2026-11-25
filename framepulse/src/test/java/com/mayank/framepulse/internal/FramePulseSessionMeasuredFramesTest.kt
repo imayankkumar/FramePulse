@@ -23,6 +23,7 @@ class FramePulseSessionMeasuredFramesTest {
             monitorFactory = { consumer ->
                 FrameMonitorImpl(frames, consumer, isMainThread = { true })
             },
+            isMainThread = { true },
             refreshRateSource = refreshRateSource,
         )
 

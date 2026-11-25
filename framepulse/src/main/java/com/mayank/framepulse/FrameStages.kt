@@ -25,14 +25,45 @@ package com.mayank.framepulse
  * @property gpuMs Time the GPU spent on the frame. Null below API 31, where the platform does
  *   not report it.
  */
-public data class FrameStages(
-    val unknownDelayMs: Double,
-    val inputHandlingMs: Double,
-    val animationMs: Double,
-    val layoutMeasureMs: Double,
-    val drawMs: Double,
-    val syncMs: Double,
-    val commandIssueMs: Double,
-    val swapBuffersMs: Double,
-    val gpuMs: Double?,
-)
+public class FrameStages internal constructor(
+    public val unknownDelayMs: Double,
+    public val inputHandlingMs: Double,
+    public val animationMs: Double,
+    public val layoutMeasureMs: Double,
+    public val drawMs: Double,
+    public val syncMs: Double,
+    public val commandIssueMs: Double,
+    public val swapBuffersMs: Double,
+    public val gpuMs: Double?,
+) {
+    override fun equals(other: Any?): Boolean =
+        this === other || other is FrameStages &&
+            unknownDelayMs == other.unknownDelayMs &&
+            inputHandlingMs == other.inputHandlingMs &&
+            animationMs == other.animationMs &&
+            layoutMeasureMs == other.layoutMeasureMs &&
+            drawMs == other.drawMs &&
+            syncMs == other.syncMs &&
+            commandIssueMs == other.commandIssueMs &&
+            swapBuffersMs == other.swapBuffersMs &&
+            gpuMs == other.gpuMs
+
+    override fun hashCode(): Int {
+        var result = unknownDelayMs.hashCode()
+        result = 31 * result + inputHandlingMs.hashCode()
+        result = 31 * result + animationMs.hashCode()
+        result = 31 * result + layoutMeasureMs.hashCode()
+        result = 31 * result + drawMs.hashCode()
+        result = 31 * result + syncMs.hashCode()
+        result = 31 * result + commandIssueMs.hashCode()
+        result = 31 * result + swapBuffersMs.hashCode()
+        result = 31 * result + (gpuMs?.hashCode() ?: 0)
+        return result
+    }
+
+    override fun toString(): String =
+        "FrameStages(unknownDelayMs=$unknownDelayMs, inputHandlingMs=$inputHandlingMs, " +
+            "animationMs=$animationMs, layoutMeasureMs=$layoutMeasureMs, drawMs=$drawMs, " +
+            "syncMs=$syncMs, commandIssueMs=$commandIssueMs, swapBuffersMs=$swapBuffersMs, " +
+            "gpuMs=$gpuMs)"
+}

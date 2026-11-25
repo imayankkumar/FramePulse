@@ -21,11 +21,34 @@ package com.mayank.framepulse
  * @property tags Tags set with [FramePulseSession.setTag] at any time
  *   while the frame ran, by name. Empty when none were set.
  */
-public data class JankFrame(
-    val frameTimeNanos: Long,
-    val durationMs: Double,
-    val budgetMs: Double,
-    val isFrozen: Boolean,
-    val stages: FrameStages?,
-    val tags: Map<String, String>,
-)
+public class JankFrame internal constructor(
+    public val frameTimeNanos: Long,
+    public val durationMs: Double,
+    public val budgetMs: Double,
+    public val isFrozen: Boolean,
+    public val stages: FrameStages?,
+    public val tags: Map<String, String>,
+) {
+    override fun equals(other: Any?): Boolean =
+        this === other || other is JankFrame &&
+            frameTimeNanos == other.frameTimeNanos &&
+            durationMs == other.durationMs &&
+            budgetMs == other.budgetMs &&
+            isFrozen == other.isFrozen &&
+            stages == other.stages &&
+            tags == other.tags
+
+    override fun hashCode(): Int {
+        var result = frameTimeNanos.hashCode()
+        result = 31 * result + durationMs.hashCode()
+        result = 31 * result + budgetMs.hashCode()
+        result = 31 * result + isFrozen.hashCode()
+        result = 31 * result + (stages?.hashCode() ?: 0)
+        result = 31 * result + tags.hashCode()
+        return result
+    }
+
+    override fun toString(): String =
+        "JankFrame(frameTimeNanos=$frameTimeNanos, durationMs=$durationMs, budgetMs=$budgetMs, " +
+            "isFrozen=$isFrozen, stages=$stages, tags=$tags)"
+}

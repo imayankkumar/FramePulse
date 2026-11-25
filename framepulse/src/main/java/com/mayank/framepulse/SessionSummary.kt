@@ -25,21 +25,54 @@ package com.mayank.framepulse
  * @property tags One entry per tag value that was set during the session, in the order they
  *   were first set. See [TagSummary].
  */
-public data class SessionSummary(
-    val durationMs: Double,
-    val frameCount: Long,
-    val jankCount: Long,
-    val frozenFrameCount: Long,
-    val p50FrameTimeMs: Double,
-    val p90FrameTimeMs: Double,
-    val p95FrameTimeMs: Double,
-    val p99FrameTimeMs: Double,
-    val maxFrameTimeMs: Double,
-    val tags: List<TagSummary>,
+public class SessionSummary internal constructor(
+    public val durationMs: Double,
+    public val frameCount: Long,
+    public val jankCount: Long,
+    public val frozenFrameCount: Long,
+    public val p50FrameTimeMs: Double,
+    public val p90FrameTimeMs: Double,
+    public val p95FrameTimeMs: Double,
+    public val p99FrameTimeMs: Double,
+    public val maxFrameTimeMs: Double,
+    public val tags: List<TagSummary>,
 ) {
     /** Share of frames that were jank, from 0.0 to 1.0. 0.0 when no frame was observed. */
     public val jankRate: Double
         get() = if (frameCount == 0L) 0.0 else jankCount.toDouble() / frameCount
+
+    override fun equals(other: Any?): Boolean =
+        this === other || other is SessionSummary &&
+            durationMs == other.durationMs &&
+            frameCount == other.frameCount &&
+            jankCount == other.jankCount &&
+            frozenFrameCount == other.frozenFrameCount &&
+            p50FrameTimeMs == other.p50FrameTimeMs &&
+            p90FrameTimeMs == other.p90FrameTimeMs &&
+            p95FrameTimeMs == other.p95FrameTimeMs &&
+            p99FrameTimeMs == other.p99FrameTimeMs &&
+            maxFrameTimeMs == other.maxFrameTimeMs &&
+            tags == other.tags
+
+    override fun hashCode(): Int {
+        var result = durationMs.hashCode()
+        result = 31 * result + frameCount.hashCode()
+        result = 31 * result + jankCount.hashCode()
+        result = 31 * result + frozenFrameCount.hashCode()
+        result = 31 * result + p50FrameTimeMs.hashCode()
+        result = 31 * result + p90FrameTimeMs.hashCode()
+        result = 31 * result + p95FrameTimeMs.hashCode()
+        result = 31 * result + p99FrameTimeMs.hashCode()
+        result = 31 * result + maxFrameTimeMs.hashCode()
+        result = 31 * result + tags.hashCode()
+        return result
+    }
+
+    override fun toString(): String =
+        "SessionSummary(durationMs=$durationMs, frameCount=$frameCount, jankCount=$jankCount, " +
+            "frozenFrameCount=$frozenFrameCount, p50FrameTimeMs=$p50FrameTimeMs, " +
+            "p90FrameTimeMs=$p90FrameTimeMs, p95FrameTimeMs=$p95FrameTimeMs, " +
+            "p99FrameTimeMs=$p99FrameTimeMs, maxFrameTimeMs=$maxFrameTimeMs, tags=$tags)"
 }
 
 /**
@@ -55,14 +88,35 @@ public data class SessionSummary(
  * @property jankCount Of those, the jank frames.
  * @property frozenFrameCount Of those, the frozen frames.
  */
-public data class TagSummary(
-    val name: String,
-    val value: String,
-    val frameCount: Long,
-    val jankCount: Long,
-    val frozenFrameCount: Long,
+public class TagSummary internal constructor(
+    public val name: String,
+    public val value: String,
+    public val frameCount: Long,
+    public val jankCount: Long,
+    public val frozenFrameCount: Long,
 ) {
     /** Share of this tag's frames that were jank, from 0.0 to 1.0. 0.0 without frames. */
     public val jankRate: Double
         get() = if (frameCount == 0L) 0.0 else jankCount.toDouble() / frameCount
+
+    override fun equals(other: Any?): Boolean =
+        this === other || other is TagSummary &&
+            name == other.name &&
+            value == other.value &&
+            frameCount == other.frameCount &&
+            jankCount == other.jankCount &&
+            frozenFrameCount == other.frozenFrameCount
+
+    override fun hashCode(): Int {
+        var result = name.hashCode()
+        result = 31 * result + value.hashCode()
+        result = 31 * result + frameCount.hashCode()
+        result = 31 * result + jankCount.hashCode()
+        result = 31 * result + frozenFrameCount.hashCode()
+        return result
+    }
+
+    override fun toString(): String =
+        "TagSummary(name=$name, value=$value, frameCount=$frameCount, jankCount=$jankCount, " +
+            "frozenFrameCount=$frozenFrameCount)"
 }

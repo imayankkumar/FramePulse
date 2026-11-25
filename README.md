@@ -604,7 +604,7 @@ Publications are signed only when a signing key is configured, and Maven Central
 - Release 0.1.0 to Maven Central
 - Compose integration
 
-## If this project helps you, give it a ⭐
+## If this project helps you in anyway, show your love ❤️ by putting a ⭐ on this project ✌️
 
 ## License
 

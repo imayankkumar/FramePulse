@@ -23,7 +23,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Build, run unit tests and compile the benchmarks
         run: ./gradlew build test :benchmark:assembleReleaseAndroidTest --console=plain
@@ -52,7 +52,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Enable KVM
         run: |

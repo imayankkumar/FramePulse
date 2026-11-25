@@ -1,4 +1,4 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
 /**
  * Configuration for a FramePulse monitoring session.
@@ -18,7 +18,7 @@ package com.mayank.framepulse.api
  * [expectedFramePeriodMs] at start and whenever it changes.
  *
  * @property windowDurationMs Length of the rolling window used for FPS, average and max frame
- *   time, and [com.mayank.framepulse.model.FrameMetrics.jankCount]. Must be > 0.
+ *   time, and [FrameMetrics.jankCount]. Must be > 0.
  * @property expectedFramePeriodMs Expected time between frames, i.e. `1000 / refreshRateHz`.
  *   Must be > 0.
  * @property jankThresholdMultiplier A frame counts as jank when its frame time is strictly

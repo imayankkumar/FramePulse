@@ -1,19 +1,19 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
 import com.mayank.framepulse.internal.source.FakeFrameSource
 import com.mayank.framepulse.internal.source.FrameStageNanos
-import com.mayank.framepulse.model.FrameMetrics
-import com.mayank.framepulse.model.FrameStages
-import com.mayank.framepulse.model.JankFrame
+import com.mayank.framepulse.FrameMetrics
+import com.mayank.framepulse.FrameStages
+import com.mayank.framepulse.JankFrame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** A session with a [com.mayank.framepulse.api.JankFrameListener]. */
+/** A session with a [com.mayank.framepulse.JankFrameListener]. */
 class FramePulseSessionJankFramesTest {
 
     private val frames = FakeFrameSource()

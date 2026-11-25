@@ -1,4 +1,4 @@
-package com.mayank.framepulse.model
+package com.mayank.framepulse
 
 /**
  * Where the time of one drawn frame went, as the platform measured it

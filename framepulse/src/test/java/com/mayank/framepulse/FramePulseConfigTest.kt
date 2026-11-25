@@ -1,4 +1,4 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows

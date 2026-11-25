@@ -1,4 +1,4 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
 import android.app.Activity
 import android.content.Context
@@ -51,8 +51,8 @@ public object FramePulse {
      *   refresh rate as in the overload that takes a [Display].
      * - The window must be hardware accelerated (the default). A software-rendered window
      *   reports no frames.
-     * - Each [com.mayank.framepulse.model.JankFrame] carries its stage breakdown
-     *   ([com.mayank.framepulse.model.FrameStages]).
+     * - Each [JankFrame] carries its stage breakdown
+     *   ([FrameStages]).
      *
      * On API 21 to 23 this falls back to `Choreographer` callbacks with a budget that follows
      * the display's refresh rate, exactly like the overload that takes a [Display].

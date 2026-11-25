@@ -1,6 +1,5 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
-import com.mayank.framepulse.model.JankFrame
 
 /**
  * Callback invoked once for every frame that was jank.

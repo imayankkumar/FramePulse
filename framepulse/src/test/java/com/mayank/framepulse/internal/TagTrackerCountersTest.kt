@@ -1,6 +1,6 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.model.TagSummary
+import com.mayank.framepulse.TagSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

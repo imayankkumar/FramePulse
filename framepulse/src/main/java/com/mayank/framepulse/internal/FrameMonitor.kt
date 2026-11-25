@@ -1,6 +1,6 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.FramePulseConfig
 
 /**
  * Orchestrates frame signal acquisition for a single Android UI event loop (Looper).
@@ -13,7 +13,7 @@ import com.mayank.framepulse.api.FramePulseConfig
  * Must not:
  * - Calculate FPS or classify jank (delegated to
  *   [com.mayank.framepulse.internal.metrics.FPSCalculator]).
- * - Expose public listener types or publish [com.mayank.framepulse.model.FrameMetrics] directly.
+ * - Expose public listener types or publish [com.mayank.framepulse.FrameMetrics] directly.
  *
  * The default implementation is [FrameMonitorImpl]. It uses a pluggable
  * frame source and forwards `frameTimeNanos` to the metrics layer on each frame tick.

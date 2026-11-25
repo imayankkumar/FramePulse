@@ -1,6 +1,5 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
-import com.mayank.framepulse.model.SessionSummary
 
 /**
  * Handle for an active FramePulse monitoring session.
@@ -32,7 +31,7 @@ public interface FramePulseSession {
 
     /**
      * Sets a tag that describes what the app is doing, for example `setTag("screen", "Feed")`
-     * or `setTag("scrolling", "true")`. Every [com.mayank.framepulse.model.JankFrame] lists the
+     * or `setTag("scrolling", "true")`. Every [JankFrame] lists the
      * tags that were set while it ran.
      *
      * A tag applies to a frame if it was set at any time during the frame. Frames are reported

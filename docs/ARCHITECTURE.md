@@ -5,7 +5,7 @@
 > **Scope:** Architecture and engineering design only — no implementation code.
 
 > **Shipped v0.1 differs from this design.** For the current API see the
-> [README](../README.md) and the KDoc in `com.mayank.framepulse.api`. Main differences:
+> [README](../README.md) and the KDoc in `com.mayank.framepulse`. Main differences:
 >
 > - `FramePulse.start(config, listener)` takes the listener. `FramePulseConfig` has no
 >   `looper`; monitoring is main-thread only. It has `reportIntervalMs` (default 250 ms).

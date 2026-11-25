@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal.metrics
 
-import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.model.FrameMetrics
+import com.mayank.framepulse.FramePulseConfig
+import com.mayank.framepulse.FrameMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

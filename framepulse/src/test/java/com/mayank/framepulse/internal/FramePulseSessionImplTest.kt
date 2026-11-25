@@ -1,10 +1,10 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.api.FramePulseListener
+import com.mayank.framepulse.FramePulseConfig
+import com.mayank.framepulse.FramePulseListener
 import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
 import com.mayank.framepulse.internal.source.FakeFrameSource
-import com.mayank.framepulse.model.FrameMetrics
+import com.mayank.framepulse.FrameMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame

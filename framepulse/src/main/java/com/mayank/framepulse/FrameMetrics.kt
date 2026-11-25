@@ -1,4 +1,4 @@
-package com.mayank.framepulse.model
+package com.mayank.framepulse
 
 /**
  * Immutable snapshot of frame pacing metrics for the rolling window that ends at
@@ -22,7 +22,7 @@ package com.mayank.framepulse.model
  *   idle app reports an FPS close to the refresh rate.
  *
  * All window fields cover the last
- * [com.mayank.framepulse.api.FramePulseConfig.windowDurationMs] milliseconds.
+ * [FramePulseConfig.windowDurationMs] milliseconds.
  *
  * @property lastFrameTimeNanos Time of the newest frame in the window, in nanoseconds: the start
  *   of the frame for drawn frames, the callback's `frameTimeNanos` otherwise.

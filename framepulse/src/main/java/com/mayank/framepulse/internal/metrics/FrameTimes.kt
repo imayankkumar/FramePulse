@@ -1,6 +1,6 @@
 package com.mayank.framepulse.internal.metrics
 
-import com.mayank.framepulse.model.FrameMetrics
+import com.mayank.framepulse.FrameMetrics
 
 internal const val NANOS_PER_MILLI: Long = 1_000_000L
 

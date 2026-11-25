@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal
 
 import android.os.Looper
-import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.internal.source.ChoreographerFrameSource
 import com.mayank.framepulse.internal.source.FrameConsumer
 import com.mayank.framepulse.internal.source.FrameSource

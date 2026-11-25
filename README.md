@@ -151,9 +151,9 @@ dependencies {
 Start a session when your UI becomes visible and stop it when it isn't:
 
 ```kotlin
-import com.mayank.framepulse.api.FramePulse
-import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.api.FramePulseSession
+import com.mayank.framepulse.FramePulse
+import com.mayank.framepulse.FramePulseConfig
+import com.mayank.framepulse.FramePulseSession
 
 class MainActivity : ComponentActivity() {
 

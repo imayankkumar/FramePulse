@@ -1,8 +1,8 @@
-package com.mayank.framepulse.model
+package com.mayank.framepulse
 
 /**
  * Totals for a whole FramePulse session, from
- * [com.mayank.framepulse.api.FramePulseSession.summary].
+ * [FramePulseSession.summary].
  *
  * A frame counts here under the same rules as [FrameMetrics]: drawn frames for a session started
  * with an `Activity` on API 24+, `Choreographer` intervals otherwise.

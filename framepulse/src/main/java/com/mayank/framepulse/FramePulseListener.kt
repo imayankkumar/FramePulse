@@ -1,6 +1,5 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
-import com.mayank.framepulse.model.FrameMetrics
 
 /**
  * Callback invoked when aggregated frame metrics are available.

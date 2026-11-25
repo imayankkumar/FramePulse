@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
  * [FrameMetricsFrameSource] against a real window on API 24+.
  *
  * Tests run on the instrumentation thread. Source calls and frame state go through [onMain].
- * The window only reports frames it draws, so tests keep invalidating its content view.
+ * The window only reports frames it draws, so tests keep changing its content.
  */
 @RunWith(AndroidJUnit4::class)
 class FrameMetricsFrameSourceTest {
@@ -146,7 +146,7 @@ class FrameMetricsFrameSourceTest {
     private fun redrawUntil(latch: CountDownLatch) {
         val giveUpAt = SystemClock.uptimeMillis() + FRAME_TIMEOUT_MS
         while (latch.count > 0 && SystemClock.uptimeMillis() < giveUpAt) {
-            onMain { activity!!.content.invalidate() }
+            onMain { activity!!.redraw() }
             latch.await(REDRAW_INTERVAL_MS, TimeUnit.MILLISECONDS)
         }
         assertEquals("no frame reports within $FRAME_TIMEOUT_MS ms", 0L, latch.count)
@@ -156,7 +156,7 @@ class FrameMetricsFrameSourceTest {
     private fun redrawFor(durationMs: Long) {
         val until = SystemClock.uptimeMillis() + durationMs
         while (SystemClock.uptimeMillis() < until) {
-            onMain { activity!!.content.invalidate() }
+            onMain { activity!!.redraw() }
             SystemClock.sleep(REDRAW_INTERVAL_MS)
         }
     }

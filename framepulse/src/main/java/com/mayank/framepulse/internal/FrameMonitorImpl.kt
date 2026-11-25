@@ -5,6 +5,7 @@ import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.internal.source.ChoreographerFrameSource
 import com.mayank.framepulse.internal.source.FrameConsumer
 import com.mayank.framepulse.internal.source.FrameSource
+import com.mayank.framepulse.internal.source.FrameStageNanos
 
 /**
  * Default [FrameMonitor] implementation.
@@ -37,9 +38,10 @@ internal class FrameMonitorImpl(
             frameTimeNanos: Long,
             durationNanos: Long,
             deadlineNanos: Long,
+            stages: FrameStageNanos?,
         ) {
             if (isRunning) {
-                frameConsumer.onFrameMeasured(frameTimeNanos, durationNanos, deadlineNanos)
+                frameConsumer.onFrameMeasured(frameTimeNanos, durationNanos, deadlineNanos, stages)
             }
         }
     }

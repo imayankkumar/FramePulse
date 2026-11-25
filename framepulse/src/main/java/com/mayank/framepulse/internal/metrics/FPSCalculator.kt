@@ -50,4 +50,22 @@ internal interface FPSCalculator {
         deadlineNanos: Long,
         config: FramePulseConfig,
     ): FrameMetrics?
+
+    /**
+     * Whether the frame passed to the most recent [onFrame] or [onMeasuredFrame] call was
+     * recorded as jank. False when that call ignored the frame.
+     */
+    val lastFrameWasJank: Boolean
+
+    /**
+     * Frame time of the most recently recorded frame, in nanoseconds: its measured duration, or
+     * the interval since the previous tick.
+     */
+    val lastFrameDurationNanos: Long
+
+    /**
+     * The limit the most recently recorded frame was judged against, in nanoseconds: its
+     * deadline where one was given, otherwise [FramePulseConfig.jankThresholdMs].
+     */
+    val lastFrameBudgetNanos: Double
 }

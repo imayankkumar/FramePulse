@@ -37,8 +37,12 @@ internal class FrameMetricsFrameSource(
 
     private var consumer: FrameConsumer? = null
 
+    /** Refilled for every report; see [FrameStageNanos]. */
+    private val stages = FrameStageNanos()
+
     private val listener = Window.OnFrameMetricsAvailableListener { _, frameMetrics, _ ->
         val consumer = consumer ?: return@OnFrameMetricsAvailableListener
+        readStages(frameMetrics)
         deliverMeasuredFrame(
             consumer = consumer,
             isFirstDrawFrame = frameMetrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME) == 1L,
@@ -54,7 +58,24 @@ internal class FrameMetricsFrameSource(
                 NOT_REPORTED
             },
             nowNanos = System.nanoTime(),
+            stages = stages,
         )
+    }
+
+    private fun readStages(frameMetrics: FrameMetrics) {
+        stages.unknownDelay = frameMetrics.getMetric(FrameMetrics.UNKNOWN_DELAY_DURATION)
+        stages.inputHandling = frameMetrics.getMetric(FrameMetrics.INPUT_HANDLING_DURATION)
+        stages.animation = frameMetrics.getMetric(FrameMetrics.ANIMATION_DURATION)
+        stages.layoutMeasure = frameMetrics.getMetric(FrameMetrics.LAYOUT_MEASURE_DURATION)
+        stages.draw = frameMetrics.getMetric(FrameMetrics.DRAW_DURATION)
+        stages.sync = frameMetrics.getMetric(FrameMetrics.SYNC_DURATION)
+        stages.commandIssue = frameMetrics.getMetric(FrameMetrics.COMMAND_ISSUE_DURATION)
+        stages.swapBuffers = frameMetrics.getMetric(FrameMetrics.SWAP_BUFFERS_DURATION)
+        stages.gpu = if (sdkInt >= Build.VERSION_CODES.S) {
+            frameMetrics.getMetric(FrameMetrics.GPU_DURATION)
+        } else {
+            FrameStageNanos.NOT_REPORTED
+        }
     }
 
     override val isRunning: Boolean

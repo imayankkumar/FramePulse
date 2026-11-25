@@ -28,8 +28,15 @@ internal interface FrameConsumer {
      *   system.
      * @param deadlineNanos Time the system allotted to this frame, or [NO_DEADLINE] when the
      *   platform does not report one.
+     * @param stages Stage durations of this frame, or null when the source has none. Reused by
+     *   the source: only valid during this call.
      */
-    fun onFrameMeasured(frameTimeNanos: Long, durationNanos: Long, deadlineNanos: Long)
+    fun onFrameMeasured(
+        frameTimeNanos: Long,
+        durationNanos: Long,
+        deadlineNanos: Long,
+        stages: FrameStageNanos?,
+    )
 
     companion object {
         const val NO_DEADLINE: Long = -1L

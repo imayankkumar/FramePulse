@@ -66,14 +66,22 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
     private var totalJankCount = 0L
     private var totalFrozenCount = 0L
 
+    override var lastFrameWasJank: Boolean = false
+        private set
+    override var lastFrameDurationNanos: Long = 0L
+        private set
+    override var lastFrameBudgetNanos: Double = 0.0
+        private set
+
     override fun onFrame(frameTimeNanos: Long, config: FramePulseConfig): FrameMetrics? {
+        lastFrameWasJank = false
         val previous = lastFrameTimeNanos
         if (previous != NO_TIMESTAMP && frameTimeNanos <= previous) return null
         lastFrameTimeNanos = frameTimeNanos
         if (previous == NO_TIMESTAMP) return null
 
         val interval = frameTimeNanos - previous
-        record(frameTimeNanos, interval, isJank = interval > jankThresholdNanos(config))
+        record(frameTimeNanos, interval, budgetNanos = jankThresholdNanos(config))
 
         // Keep intervals that ended inside the window, the boundary included.
         evictBefore(frameTimeNanos - windowNanos(config))
@@ -89,6 +97,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         deadlineNanos: Long,
         config: FramePulseConfig,
     ): FrameMetrics? {
+        lastFrameWasJank = false
         if (durationNanos <= 0L) return null
 
         // Eviction walks the buffer from the oldest entry, so times must not go backwards.
@@ -98,12 +107,12 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         lastFrameTimeNanos = time
         if (firstMeasuredTimeNanos == NO_TIMESTAMP) firstMeasuredTimeNanos = time
 
-        val isJank = if (deadlineNanos > 0L) {
-            durationNanos > deadlineNanos
+        val budgetNanos = if (deadlineNanos > 0L) {
+            deadlineNanos.toDouble()
         } else {
-            durationNanos > jankThresholdNanos(config)
+            jankThresholdNanos(config)
         }
-        record(time, durationNanos, isJank)
+        record(time, durationNanos, budgetNanos)
 
         // Keep frames that started inside the window. A frame exactly one window old is dropped,
         // otherwise a steady 100 Hz stream would count 101 frames in one second.
@@ -132,7 +141,13 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         return frameTimeNanos - lastReportTimeNanos >= config.reportIntervalMs * NANOS_PER_MILLI
     }
 
-    private fun record(time: Long, duration: Long, isJank: Boolean) {
+    /** Records one frame; it is jank when [duration] is strictly over [budgetNanos]. */
+    private fun record(time: Long, duration: Long, budgetNanos: Double) {
+        val isJank = duration > budgetNanos
+        lastFrameWasJank = isJank
+        lastFrameDurationNanos = duration
+        lastFrameBudgetNanos = budgetNanos
+
         if (size == times.size) grow()
         val index = (head + size) % times.size
         times[index] = time

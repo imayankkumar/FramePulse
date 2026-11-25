@@ -129,6 +129,7 @@ class ChoreographerFrameSourceTest {
             frameTimeNanos: Long,
             durationNanos: Long,
             deadlineNanos: Long,
+            stages: FrameStageNanos?,
         ) = Unit
     }
 

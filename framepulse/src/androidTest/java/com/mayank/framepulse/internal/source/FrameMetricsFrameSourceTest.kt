@@ -33,6 +33,8 @@ class FrameMetricsFrameSourceTest {
 
     private val durations = mutableListOf<Long>()
     private val deadlines = mutableListOf<Long>()
+    private val drawStages = mutableListOf<Long>()
+    private val gpuStages = mutableListOf<Long>()
     private var tickCount = 0
     private var deliveredOffMainThread = false
 
@@ -67,6 +69,14 @@ class FrameMetricsFrameSourceTest {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val seenDeadlines = onMain { deadlines.toList() }
             assertTrue("API 31+ reports a deadline: $seenDeadlines", seenDeadlines.all { it > 0L })
+        }
+        val seenDraw = onMain { drawStages.toList() }
+        assertTrue("draw stage must be reported: $seenDraw", seenDraw.all { it >= 0L })
+        val seenGpu = onMain { gpuStages.toList() }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            assertTrue("API 31+ reports the GPU stage: $seenGpu", seenGpu.all { it >= 0L })
+        } else {
+            assertTrue("no GPU stage below API 31: $seenGpu", seenGpu.all { it < 0L })
         }
     }
 
@@ -121,10 +131,13 @@ class FrameMetricsFrameSourceTest {
             frameTimeNanos: Long,
             durationNanos: Long,
             deadlineNanos: Long,
+            stages: FrameStageNanos?,
         ) {
             if (Looper.myLooper() !== Looper.getMainLooper()) deliveredOffMainThread = true
             durations += durationNanos
             deadlines += deadlineNanos
+            drawStages += stages?.draw ?: Long.MIN_VALUE
+            gpuStages += stages?.gpu ?: Long.MIN_VALUE
             frames.countDown()
         }
     }

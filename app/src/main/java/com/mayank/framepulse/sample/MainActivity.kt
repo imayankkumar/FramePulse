@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -83,7 +85,9 @@ private fun MetricsScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(24.dp),
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("FramePulse demo", style = MaterialTheme.typography.headlineSmall)
@@ -103,7 +107,16 @@ private fun MetricsScreen(
                 "%.1f".format(Locale.US, metrics.fps))
             Metric("Jank in window", metrics.jankCount.toString())
             Metric("Jank since start", metrics.totalJankCount.toString())
-            Metric("Max frame time", "%.1f ms".format(Locale.US, metrics.maxFrameTimeMs))
+            Metric("Frozen frames since start", metrics.totalFrozenFrameCount.toString())
+            Metric(
+                "p50 / p95 / max frame time",
+                "%.1f / %.1f / %.1f ms".format(
+                    Locale.US,
+                    metrics.p50FrameTimeMs,
+                    metrics.p95FrameTimeMs,
+                    metrics.maxFrameTimeMs,
+                ),
+            )
         }
 
         Button(onClick = { onBlockMainThread(BLOCK_DURATION_MS) }) {

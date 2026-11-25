@@ -5,12 +5,17 @@ import com.mayank.framepulse.api.FramePulseListener
 import com.mayank.framepulse.api.FramePulseSession
 import com.mayank.framepulse.api.JankFrameListener
 import com.mayank.framepulse.internal.metrics.FPSCalculator
+import com.mayank.framepulse.internal.metrics.NANOS_PER_MILLI
+import com.mayank.framepulse.internal.metrics.SessionFrameStats
+import com.mayank.framepulse.internal.metrics.isFrozenFrame
+import com.mayank.framepulse.internal.metrics.nanosToMillis
 import com.mayank.framepulse.internal.source.FrameConsumer
 import com.mayank.framepulse.internal.source.FrameStageNanos
 import com.mayank.framepulse.internal.source.RefreshRateSource
 import com.mayank.framepulse.model.FrameMetrics
 import com.mayank.framepulse.model.FrameStages
 import com.mayank.framepulse.model.JankFrame
+import com.mayank.framepulse.model.SessionSummary
 
 /**
  * Internal [FramePulseSession]: wires a [FrameMonitor] to an [FPSCalculator] and the listeners.
@@ -47,6 +52,10 @@ internal class FramePulseSessionImpl(
 ) : FramePulseSession {
 
     private val tags = TagTracker()
+    private val sessionStats = SessionFrameStats()
+
+    private var sessionStartNanos = NOT_SET
+    private var sessionStopNanos = NOT_SET
 
     private val frameConsumer = object : FrameConsumer {
         override fun onFrameTick(frameTimeNanos: Long) {
@@ -97,6 +106,7 @@ internal class FramePulseSessionImpl(
      */
     fun start() {
         monitor.start(activeConfig)
+        sessionStartNanos = nanoTime()
         val source = refreshRateSource ?: return
         try {
             applyRefreshRate(source.start(::onRefreshRateChanged))
@@ -111,7 +121,10 @@ internal class FramePulseSessionImpl(
         val wasRunning = monitor.isRunning
         // Throws off the main thread before changing anything (see FrameMonitorImpl.stop).
         monitor.stop()
-        if (wasRunning) refreshRateSource?.stop()
+        if (wasRunning) {
+            sessionStopNanos = nanoTime()
+            refreshRateSource?.stop()
+        }
     }
 
     override val isRunning: Boolean
@@ -127,6 +140,28 @@ internal class FramePulseSessionImpl(
         tags.remove(name, nanoTime())
     }
 
+    override fun summary(): SessionSummary {
+        assertMainThread("summary")
+        val endNanos = if (sessionStopNanos != NOT_SET) sessionStopNanos else nanoTime()
+        val stats = sessionStats
+        return SessionSummary(
+            durationMs = if (sessionStartNanos == NOT_SET) {
+                0.0
+            } else {
+                nanosToMillis(endNanos - sessionStartNanos)
+            },
+            frameCount = stats.frameCount,
+            jankCount = stats.jankCount,
+            frozenFrameCount = stats.frozenFrameCount,
+            p50FrameTimeMs = stats.percentileMs(percent = 50),
+            p90FrameTimeMs = stats.percentileMs(percent = 90),
+            p95FrameTimeMs = stats.percentileMs(percent = 95),
+            p99FrameTimeMs = stats.percentileMs(percent = 99),
+            maxFrameTimeMs = nanosToMillis(stats.maxDurationNanos),
+            tags = tags.summaries(),
+        )
+    }
+
     /**
      * Calls the listeners for the frame the calculator has just recorded.
      *
@@ -140,6 +175,13 @@ internal class FramePulseSessionImpl(
         stages: FrameStageNanos?,
         metrics: FrameMetrics?,
     ) {
+        if (calculator.lastFrameWasRecorded) {
+            val durationNanos = calculator.lastFrameDurationNanos
+            val isJank = calculator.lastFrameWasJank
+            sessionStats.record(durationNanos, isJank)
+            tags.countFrame(startNanos, endNanos, isJank, isFrozenFrame(durationNanos))
+        }
+
         val jankListener = jankFrameListener
         val jankFrame = if (jankListener != null && calculator.lastFrameWasJank) {
             jankFrame(frameTimeNanos, stages, tags.tagsDuring(startNanos, endNanos))
@@ -173,9 +215,9 @@ internal class FramePulseSessionImpl(
         val durationNanos = calculator.lastFrameDurationNanos
         return JankFrame(
             frameTimeNanos = frameTimeNanos,
-            durationMs = durationNanos.toDouble() / NANOS_PER_MILLI,
+            durationMs = nanosToMillis(durationNanos),
             budgetMs = calculator.lastFrameBudgetNanos / NANOS_PER_MILLI,
-            isFrozen = durationNanos > FrameMetrics.FROZEN_FRAME_THRESHOLD_MS * NANOS_PER_MILLI,
+            isFrozen = isFrozenFrame(durationNanos),
             stages = stages?.toFrameStages(),
             tags = frameTags,
         )
@@ -193,7 +235,7 @@ internal class FramePulseSessionImpl(
     }
 
     private companion object {
-        const val NANOS_PER_MILLI = 1_000_000L
+        const val NOT_SET = Long.MIN_VALUE
     }
 }
 

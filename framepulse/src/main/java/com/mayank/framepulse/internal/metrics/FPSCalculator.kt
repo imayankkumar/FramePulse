@@ -52,6 +52,12 @@ internal interface FPSCalculator {
     ): FrameMetrics?
 
     /**
+     * Whether the most recent [onFrame] or [onMeasuredFrame] call recorded a frame. False when
+     * it ignored it (a first tick, a time that did not move forward, or no positive duration).
+     */
+    val lastFrameWasRecorded: Boolean
+
+    /**
      * Whether the frame passed to the most recent [onFrame] or [onMeasuredFrame] call was
      * recorded as jank. False when that call ignored the frame.
      */

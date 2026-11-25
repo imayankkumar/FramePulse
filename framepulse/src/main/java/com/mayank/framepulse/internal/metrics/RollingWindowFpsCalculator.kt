@@ -66,6 +66,8 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
     private var totalJankCount = 0L
     private var totalFrozenCount = 0L
 
+    override var lastFrameWasRecorded: Boolean = false
+        private set
     override var lastFrameWasJank: Boolean = false
         private set
     override var lastFrameDurationNanos: Long = 0L
@@ -74,6 +76,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         private set
 
     override fun onFrame(frameTimeNanos: Long, config: FramePulseConfig): FrameMetrics? {
+        lastFrameWasRecorded = false
         lastFrameWasJank = false
         val previous = lastFrameTimeNanos
         if (previous != NO_TIMESTAMP && frameTimeNanos <= previous) return null
@@ -97,6 +100,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         deadlineNanos: Long,
         config: FramePulseConfig,
     ): FrameMetrics? {
+        lastFrameWasRecorded = false
         lastFrameWasJank = false
         if (durationNanos <= 0L) return null
 
@@ -144,6 +148,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
     /** Records one frame; it is jank when [duration] is strictly over [budgetNanos]. */
     private fun record(time: Long, duration: Long, budgetNanos: Double) {
         val isJank = duration > budgetNanos
+        lastFrameWasRecorded = true
         lastFrameWasJank = isJank
         lastFrameDurationNanos = duration
         lastFrameBudgetNanos = budgetNanos
@@ -160,7 +165,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
             windowJankCount++
             totalJankCount++
         }
-        if (isFrozen(duration)) {
+        if (isFrozenFrame(duration)) {
             windowFrozenCount++
             totalFrozenCount++
         }
@@ -170,13 +175,11 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         while (size > 0 && times[head] < cutoffNanos) {
             windowDurationSumNanos -= durations[head]
             if (janks[head]) windowJankCount--
-            if (isFrozen(durations[head])) windowFrozenCount--
+            if (isFrozenFrame(durations[head])) windowFrozenCount--
             head = (head + 1) % times.size
             size--
         }
     }
-
-    private fun isFrozen(durationNanos: Long): Boolean = durationNanos > FROZEN_FRAME_NANOS
 
     private fun grow() {
         val newCapacity = times.size * 2
@@ -210,7 +213,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
             fps = size * NANOS_PER_SECOND / spanNanos,
             frameCount = size,
             averageFrameTimeMs = windowDurationSumNanos.toDouble() / size / NANOS_PER_MILLI,
-            maxFrameTimeMs = toMillis(sorted[size - 1]),
+            maxFrameTimeMs = nanosToMillis(sorted[size - 1]),
             p50FrameTimeMs = percentileMs(sorted, percent = 50),
             p90FrameTimeMs = percentileMs(sorted, percent = 90),
             p95FrameTimeMs = percentileMs(sorted, percent = 95),
@@ -227,16 +230,12 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
     private fun percentileMs(sorted: LongArray, percent: Int): Double {
         // ceil(percent * size / 100) in integer arithmetic, then to a 0-based index.
         val rank = (percent * size + 99) / 100
-        return toMillis(sorted[rank - 1])
+        return nanosToMillis(sorted[rank - 1])
     }
-
-    private fun toMillis(nanos: Long): Double = nanos.toDouble() / NANOS_PER_MILLI
 
     private companion object {
         const val INITIAL_CAPACITY = 128
         const val NO_TIMESTAMP = Long.MIN_VALUE
-        const val NANOS_PER_MILLI = 1_000_000L
         const val NANOS_PER_SECOND = 1_000_000_000.0
-        const val FROZEN_FRAME_NANOS = FrameMetrics.FROZEN_FRAME_THRESHOLD_MS * NANOS_PER_MILLI
     }
 }

@@ -28,7 +28,7 @@ package com.mayank.framepulse
  * @property reportIntervalMs Minimum time between two listener calls, measured on the frame
  *   clock. 0 reports on every frame. Default 250.
  */
-public class FramePulseConfig private constructor(builder: Builder) {
+public class FramePulseConfig internal constructor(builder: Builder) {
 
     public val windowDurationMs: Long = builder.windowDurationMs
     public val expectedFramePeriodMs: Float = builder.expectedFramePeriodMs

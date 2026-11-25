@@ -27,10 +27,12 @@ FramePulse goes the other way. Its goals are to:
 ## ✅ Done
 
 - Drawn-frame source from the platform's frame metrics (API 24+), with a `Choreographer` fallback
-- Rolling-window FPS, average and max frame time
+- Rolling-window FPS, average, max and p50 / p90 / p95 / p99 frame times
+- Frozen frame counts (frames over 700 ms)
 - Jank detection against the system's frame deadline (API 31+) or a configurable frame budget
 - Optional frame budget that follows display refresh-rate changes during a session
 - Listener API delivering immutable `FrameMetrics` snapshots
+- Optional per-frame jank callback with a stage breakdown (input, animation, layout, draw, sync, GPU) for drawn frames
 - Explicit session lifecycle (start / stop, no restart)
 - JVM unit tests for the metrics math and the session state machine
 - GitHub Actions CI (`./gradlew build test`)
@@ -38,8 +40,6 @@ FramePulse goes the other way. Its goals are to:
 
 ## 📋 Planned
 
-- Percentiles (p50 / p95 / p99)
-- Per-stage timings for slow frames (input, layout, draw)
 - Benchmark module (measure FramePulse's own overhead)
 - Instrumentation tests
 - Maven Central publishing
@@ -80,8 +80,7 @@ Window draws a frame ──► platform FrameMetrics (TOTAL_DURATION, DEADLINE)
 - Count the first frame of a new window layout. The platform expects that frame to be slow.
 - Work on a software-rendered window. The window must be hardware accelerated, which is the default.
 - See other windows, such as dialogs. Only the activity's own window is measured.
-- Give a per-stage breakdown (input, animation, measure/layout, draw). The platform reports it, but FramePulse does not expose it yet.
-- Say which code caused a slow frame. Use Perfetto or Android Studio's profiler for that.
+- Say which code caused a slow frame. The stage breakdown on each jank frame tells you which stage was slow (for example layout or draw), not which code. Use Perfetto or Android Studio's profiler for that.
 
 This mode has been checked with unit tests only, not yet on a device.
 
@@ -196,6 +195,30 @@ class MainActivity : ComponentActivity() {
 | `expectedFramePeriodMs` | 16.67 | Frame budget; set it with `withRefreshRate(hz)`. Replaced by the display's rate when you pass an `Activity` or a `Display` |
 | `jankThresholdMultiplier` | 1.5 | Jank if frame time > budget × multiplier (must be ≥ 1.0). Not used for drawn frames on API 31+ |
 | `reportIntervalMs` | 250 | Minimum time between listener calls; 0 = every frame |
+
+## Jank frames
+
+To see each jank frame as it happens, pass a `jankFrameListener`. It works with every `start` overload and is called on the main thread, before the metrics listener for the same frame:
+
+```kotlin
+session = FramePulse.start(
+    activity = this,
+    jankFrameListener = { frame ->
+        Log.w("FramePulse", "jank: %.1f ms (budget %.1f ms), stages=%s".format(
+            frame.durationMs, frame.budgetMs, frame.stages))
+    },
+) { metrics -> /* rolling-window metrics as before */ }
+```
+
+| `JankFrame` field | Meaning |
+|-------------------|---------|
+| `durationMs` | How long the frame took |
+| `budgetMs` | The limit it went over: the system's deadline (API 31+), otherwise the jank threshold |
+| `isFrozen` | Whether it took longer than 700 ms |
+| `frameTimeNanos` | When it happened, in the same time base as `FrameMetrics.lastFrameTimeNanos` |
+| `stages` | Where the time went, for drawn frames (API 24+); `null` for `Choreographer` frames |
+
+`FrameStages` holds the platform's stage durations in milliseconds: `unknownDelayMs` (the main thread was busy before the frame could start), `inputHandlingMs`, `animationMs`, `layoutMeasureMs`, `drawMs`, `syncMs`, `commandIssueMs`, `swapBuffersMs` and `gpuMs` (API 31+, otherwise `null`). The stages partly overlap, so they do not add up to `durationMs`. A `JankFrame` is only allocated for a jank frame; smooth frames allocate nothing.
 
 ---
 

@@ -3,6 +3,7 @@ package com.mayank.framepulse;
 import static org.junit.Assert.assertEquals;
 
 import android.app.Activity;
+import android.app.Application;
 import android.content.Context;
 import android.view.Display;
 
@@ -62,5 +63,25 @@ public class JavaCallersTest {
         boolean running = session.isRunning();
         session.stop();
         long frozenThresholdMs = FramePulseMetrics.FROZEN_FRAME_THRESHOLD_MS;
+    }
+
+    /** Never run, like the method above: Java can call every monitorActivities overload. */
+    @SuppressWarnings("unused")
+    private static void everyMonitorActivitiesOverloadCompiles(
+            Application application, Activity activity, FramePulseConfig config) {
+        ActivitySessionListener listener = (stopped, summary) -> {
+            String name = stopped.getClass().getSimpleName();
+            long jank = summary.getJankCount();
+        };
+        JankFrameListener jankFrameListener = frame -> {
+            String screen = frame.getTags().get(FramePulse.ACTIVITY_TAG);
+        };
+
+        ActivityMonitor monitor = FramePulse.monitorActivities(application, listener);
+        monitor = FramePulse.monitorActivities(application, config, listener);
+        monitor = FramePulse.monitorActivities(application, config, jankFrameListener, listener);
+
+        FramePulseSession session = monitor.sessionFor(activity);
+        monitor.stop();
     }
 }

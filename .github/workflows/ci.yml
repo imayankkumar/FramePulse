@@ -1,7 +1,11 @@
 name: CI
 
 on:
+  # Pull requests are checked by the pull_request run. Running on every branch push as well
+  # doubled the jobs per commit, and the parallel dependency downloads got rate limited by
+  # Maven Central (HTTP 429).
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -21,8 +25,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and run unit tests
-        run: ./gradlew build test --console=plain
+      - name: Build, run unit tests and compile the benchmarks
+        run: ./gradlew build test :benchmark:assembleReleaseAndroidTest --console=plain
 
       - name: Upload test reports
         if: failure()

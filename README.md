@@ -40,12 +40,12 @@ FramePulse goes the other way. Its goals are to:
 - One public package, usable from Kotlin and Java; result types can gain fields without breaking compiled apps
 - JVM unit tests for the metrics math and the session state machine
 - Instrumentation tests on emulators (API 21, 24, 34) in CI; also passing on a Pixel 6 Pro (Android 14)
+- Microbenchmarks of the per-frame work: about 65 ns and no allocations per frame on a Pixel 6 Pro
 - GitHub Actions CI (`./gradlew build test`), including a check of the public API against `framepulse/api/framepulse.api`
 - Demo app with live metrics and a "cause jank" button
 
 ## 📋 Planned
 
-- Benchmark module (measure FramePulse's own overhead)
 - Maven Central publishing
 - Compose integration
 
@@ -324,6 +324,23 @@ class MyApp : Application() {
 
 ---
 
+# Overhead
+
+FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://developer.android.com/topic/performance/benchmarking/microbenchmark-overview) on a Pixel 6 Pro (Android 14, release build, CPU clocks not locked), with frames at 120 Hz and the default config:
+
+| Per frame | Median time | Allocations |
+|-----------|-------------|-------------|
+| Drawn frame through the session (window, summary, listener) | 65 ns | none¹ |
+| Same, with 3 tags set | 83 ns | none¹ |
+| `Choreographer` tick through the session | 66 ns | none¹ |
+| Jank frame with a `jankFrameListener` | 308 ns | 6 (the `JankFrame`, its stages and tags) |
+
+¹ Apart from one `FramePulseMetrics` snapshot per report interval (every 30 frames at 120 Hz with the default 250 ms), which the times include.
+
+65 ns is under 0.001% of an 8.3 ms frame at 120 Hz. Not included: the platform's own cost of delivering frame metrics or `Choreographer` callbacks, and whatever your listeners do. The benchmarks are in `:benchmark`; see [Development](#development) to run them.
+
+---
+
 # Demo app
 
 `:app` shows live FPS, jank in the window, jank since start and the max frame time for the frames its window draws. It also has a **Block main thread for 200 ms** button: press it and the next frame takes about 200 ms, so the jank count goes up. On an idle screen the FPS is low, because the window only draws when the numbers change.
@@ -366,6 +383,8 @@ FramePulse
 │   │                    immutable results (FramePulseMetrics, JankFrame, SessionSummary)
 │   └── internal/        Implementation (not public): FrameMonitor, FPSCalculator, session,
 │                        frame and refresh-rate sources
+│
+├── benchmark/           Microbenchmarks of the per-frame work (compiles framepulse's sources)
 │
 ├── docs/
 │
@@ -416,6 +435,12 @@ Instrumentation tests (frame sources, activity monitoring and lifecycle stops) o
 ```
 
 CI runs them on emulators with API 21, 24 and 34.
+
+Benchmarks of the per-frame work, on a real device (API 23+; emulator results are not meaningful). Results are printed and saved as JSON under `benchmark/build/outputs/`:
+
+```bash
+./gradlew :benchmark:connectedReleaseAndroidTest
+```
 
 Gradle 8.13 runs on JDK 17–23. If your IDE or `JAVA_HOME` points to a newer JDK (for example 25), point Gradle at a JDK 17 or 21 instead.
 

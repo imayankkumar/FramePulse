@@ -1,0 +1,158 @@
+public abstract interface class com/mayank/framepulse/ActivityMonitor {
+	public abstract fun sessionFor (Landroid/app/Activity;)Lcom/mayank/framepulse/FramePulseSession;
+	public abstract fun stop ()V
+}
+
+public abstract interface class com/mayank/framepulse/ActivitySessionListener {
+	public abstract fun onActivitySessionEnded (Landroid/app/Activity;Lcom/mayank/framepulse/SessionSummary;)V
+}
+
+public final class com/mayank/framepulse/FramePulse {
+	public static final field ACTIVITY_TAG Ljava/lang/String;
+	public static final field INSTANCE Lcom/mayank/framepulse/FramePulse;
+	public static final fun monitorActivities (Landroid/app/Application;Lcom/mayank/framepulse/ActivitySessionListener;)Lcom/mayank/framepulse/ActivityMonitor;
+	public static final fun monitorActivities (Landroid/app/Application;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/ActivitySessionListener;)Lcom/mayank/framepulse/ActivityMonitor;
+	public static final fun monitorActivities (Landroid/app/Application;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/ActivitySessionListener;)Lcom/mayank/framepulse/ActivityMonitor;
+	public static synthetic fun monitorActivities$default (Landroid/app/Application;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/ActivitySessionListener;ILjava/lang/Object;)Lcom/mayank/framepulse/ActivityMonitor;
+	public static final fun start (Landroid/app/Activity;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Landroid/app/Activity;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Landroid/app/Activity;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Landroid/content/Context;Landroid/view/Display;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Landroid/content/Context;Landroid/view/Display;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Landroid/content/Context;Landroid/view/Display;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static final fun start (Lcom/mayank/framepulse/FramePulseListener;)Lcom/mayank/framepulse/FramePulseSession;
+	public static synthetic fun start$default (Landroid/app/Activity;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/FramePulseListener;ILjava/lang/Object;)Lcom/mayank/framepulse/FramePulseSession;
+	public static synthetic fun start$default (Landroid/content/Context;Landroid/view/Display;Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/FramePulseListener;ILjava/lang/Object;)Lcom/mayank/framepulse/FramePulseSession;
+	public static synthetic fun start$default (Lcom/mayank/framepulse/FramePulseConfig;Lcom/mayank/framepulse/JankFrameListener;Lcom/mayank/framepulse/FramePulseListener;ILjava/lang/Object;)Lcom/mayank/framepulse/FramePulseSession;
+}
+
+public final class com/mayank/framepulse/FramePulseConfig {
+	public static final field Companion Lcom/mayank/framepulse/FramePulseConfig$Companion;
+	public static final field DEFAULT Lcom/mayank/framepulse/FramePulseConfig;
+	public static final field DEFAULT_EXPECTED_FRAME_PERIOD_MS F
+	public static final field DEFAULT_JANK_THRESHOLD_MULTIPLIER F
+	public static final field DEFAULT_REPORT_INTERVAL_MS J
+	public static final field DEFAULT_WINDOW_DURATION_MS J
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExpectedFramePeriodMs ()F
+	public final fun getJankThresholdMs ()F
+	public final fun getJankThresholdMultiplier ()F
+	public final fun getReportIntervalMs ()J
+	public final fun getWindowDurationMs ()J
+	public fun hashCode ()I
+	public final fun newBuilder ()Lcom/mayank/framepulse/FramePulseConfig$Builder;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/mayank/framepulse/FramePulseConfig$Builder {
+	public fun <init> ()V
+	public final fun build ()Lcom/mayank/framepulse/FramePulseConfig;
+	public final fun expectedFramePeriodMs (F)Lcom/mayank/framepulse/FramePulseConfig$Builder;
+	public final fun jankThresholdMultiplier (F)Lcom/mayank/framepulse/FramePulseConfig$Builder;
+	public final fun refreshRate (F)Lcom/mayank/framepulse/FramePulseConfig$Builder;
+	public final fun reportIntervalMs (J)Lcom/mayank/framepulse/FramePulseConfig$Builder;
+	public final fun windowDurationMs (J)Lcom/mayank/framepulse/FramePulseConfig$Builder;
+}
+
+public final class com/mayank/framepulse/FramePulseConfig$Companion {
+}
+
+public abstract interface class com/mayank/framepulse/FramePulseListener {
+	public abstract fun onMetrics (Lcom/mayank/framepulse/FramePulseMetrics;)V
+}
+
+public final class com/mayank/framepulse/FramePulseMetrics {
+	public static final field Companion Lcom/mayank/framepulse/FramePulseMetrics$Companion;
+	public static final field FROZEN_FRAME_THRESHOLD_MS J
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAverageFrameTimeMs ()D
+	public final fun getFps ()D
+	public final fun getFrameCount ()I
+	public final fun getFrozenFrameCount ()I
+	public final fun getJankCount ()I
+	public final fun getLastFrameTimeNanos ()J
+	public final fun getMaxFrameTimeMs ()D
+	public final fun getP50FrameTimeMs ()D
+	public final fun getP90FrameTimeMs ()D
+	public final fun getP95FrameTimeMs ()D
+	public final fun getP99FrameTimeMs ()D
+	public final fun getTotalFrameCount ()J
+	public final fun getTotalFrozenFrameCount ()J
+	public final fun getTotalJankCount ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/mayank/framepulse/FramePulseMetrics$Companion {
+}
+
+public abstract interface class com/mayank/framepulse/FramePulseSession {
+	public abstract fun isRunning ()Z
+	public abstract fun removeTag (Ljava/lang/String;)V
+	public abstract fun setTag (Ljava/lang/String;Ljava/lang/String;)V
+	public abstract fun stop ()V
+	public abstract fun summary ()Lcom/mayank/framepulse/SessionSummary;
+}
+
+public final class com/mayank/framepulse/FrameStages {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAnimationMs ()D
+	public final fun getCommandIssueMs ()D
+	public final fun getDrawMs ()D
+	public final fun getGpuMs ()Ljava/lang/Double;
+	public final fun getInputHandlingMs ()D
+	public final fun getLayoutMeasureMs ()D
+	public final fun getSwapBuffersMs ()D
+	public final fun getSyncMs ()D
+	public final fun getUnknownDelayMs ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/mayank/framepulse/JankFrame {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBudgetMs ()D
+	public final fun getDurationMs ()D
+	public final fun getFrameTimeNanos ()J
+	public final fun getStages ()Lcom/mayank/framepulse/FrameStages;
+	public final fun getTags ()Ljava/util/Map;
+	public fun hashCode ()I
+	public final fun isFrozen ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/mayank/framepulse/JankFrameListener {
+	public abstract fun onJankFrame (Lcom/mayank/framepulse/JankFrame;)V
+}
+
+public final class com/mayank/framepulse/SessionSummary {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDurationMs ()D
+	public final fun getFrameCount ()J
+	public final fun getFrozenFrameCount ()J
+	public final fun getJankCount ()J
+	public final fun getJankRate ()D
+	public final fun getMaxFrameTimeMs ()D
+	public final fun getP50FrameTimeMs ()D
+	public final fun getP90FrameTimeMs ()D
+	public final fun getP95FrameTimeMs ()D
+	public final fun getP99FrameTimeMs ()D
+	public final fun getTags ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/mayank/framepulse/TagSummary {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFrameCount ()J
+	public final fun getFrozenFrameCount ()J
+	public final fun getJankCount ()J
+	public final fun getJankRate ()D
+	public final fun getName ()Ljava/lang/String;
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+

@@ -39,7 +39,7 @@ FramePulse goes the other way. Its goals are to:
 - `FramePulse.monitorActivities`: one call measures every activity from `onStart` to `onStop` and reports its summary
 - One public package, usable from Kotlin and Java; result types can gain fields without breaking compiled apps
 - JVM unit tests for the metrics math and the session state machine
-- GitHub Actions CI (`./gradlew build test`)
+- GitHub Actions CI (`./gradlew build test`), including a check of the public API against `framepulse/api/framepulse.api`
 - Demo app with live metrics and a "cause jank" button
 
 ## 📋 Planned
@@ -410,6 +410,18 @@ Library only:
 ```
 
 Gradle 8.13 runs on JDK 17–23. If your IDE or `JAVA_HOME` points to a newer JDK (for example 25), point Gradle at a JDK 17 or 21 instead.
+
+## Public API check
+
+The library's public API is recorded in [`framepulse/api/framepulse.api`](framepulse/api/framepulse.api). `./gradlew build` (and CI) compares the compiled library with it and fails on any difference, so a change that would break apps compiled against an earlier version cannot slip in unnoticed.
+
+When you change the public API on purpose, update the file and commit it with the change:
+
+```bash
+./gradlew :framepulse:apiDump
+```
+
+Adding to the API is safe. Removing or changing anything already listed breaks binary compatibility and needs a new major version.
 
 ---
 

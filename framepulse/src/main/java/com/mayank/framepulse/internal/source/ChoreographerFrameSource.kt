@@ -49,7 +49,8 @@ internal class ChoreographerFrameSource(
             override fun doFrame(frameTimeNanos: Long) {
                 if (!running) return
 
-                val consumer = frameConsumer ?: return
+                // The field, not the start() parameter: stop() clears it.
+                val consumer = this@ChoreographerFrameSource.frameConsumer ?: return
 
                 try {
                     consumer.onFrameTick(frameTimeNanos)

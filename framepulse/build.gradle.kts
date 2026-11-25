@@ -1,8 +1,10 @@
 import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.SourcesJar
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.vanniktech.maven.publish)
 }
 
@@ -17,6 +19,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        // AGP 9 would otherwise require apps to compile against this module's compileSdk (36).
+        // The public API only uses Android types from API 21, as in 0.1.0.
+        aarMetadata {
+            minCompileSdk = 21
+        }
     }
 
     testOptions {
@@ -38,14 +46,21 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
 }
 
 kotlin {
     // Every declaration must state its visibility, so nothing becomes public API by accident.
     explicitApi()
+
+    // Built with a new Kotlin compiler, but readable by apps on older ones: the library may only
+    // use Kotlin 2.0 language features and standard library APIs, and depends on stdlib 2.0.21.
+    coreLibrariesVersion = "2.0.21"
+    compilerOptions {
+        languageVersion = KotlinVersion.KOTLIN_2_0
+        apiVersion = KotlinVersion.KOTLIN_2_0
+        // Kotlin 2.4 warns that language version 2.0 is deprecated; it is kept on purpose.
+        freeCompilerArgs.add("-Xsuppress-version-warnings")
+    }
 }
 
 mavenPublishing {
@@ -55,9 +70,9 @@ mavenPublishing {
     // generates the javadoc jar from the KDoc.
     configure(
         AndroidSingleVariantLibrary(
+            javadocJar = JavadocJar.Javadoc(),
+            sourcesJar = SourcesJar.Sources(),
             variant = "release",
-            sourcesJar = true,
-            publishJavadocJar = true,
         ),
     )
 

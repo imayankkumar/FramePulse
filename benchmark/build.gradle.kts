@@ -2,7 +2,6 @@
 // ./gradlew :benchmark:connectedReleaseAndroidTest
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.androidx.benchmark)
 }
 
@@ -34,13 +33,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
 
     // The per-frame code is internal to the library, so it is compiled into this module instead
     // of being made public for the benchmarks. The library's API is checked by :framepulse.
-    sourceSets["main"].java.srcDir("../framepulse/src/main/java")
+    sourceSets["main"].kotlin.directories.add("../framepulse/src/main/java")
 }
 
 dependencies {

@@ -108,10 +108,9 @@ private fun JankyList(
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             items(ROW_COUNT) { index ->
                 busyWait(workMs)
-                ListItem(
-                    headlineContent = { Text("Row ${index + 1}") },
-                    supportingContent = { Text("Took $workMs ms to compose") },
-                )
+                ListItem(supportingContent = { Text("Took $workMs ms to compose") }) {
+                    Text("Row ${index + 1}")
+                }
             }
         }
     }

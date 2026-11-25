@@ -36,6 +36,7 @@ FramePulse goes the other way. Its goals are to:
 - Tags (for example the screen, or "scrolling") that say what the app was doing during each jank frame
 - Session summary: totals, jank rate, frozen frames, whole-session percentiles and a per-tag breakdown
 - Explicit session lifecycle (start / stop, no restart)
+- One public package, usable from Kotlin and Java; result types can gain fields without breaking compiled apps
 - JVM unit tests for the metrics math and the session state machine
 - GitHub Actions CI (`./gradlew build test`)
 - Demo app with live metrics and a "cause jank" button
@@ -189,14 +190,29 @@ class MainActivity : ComponentActivity() {
 | `totalFrameCount` / `totalJankCount` / `totalFrozenFrameCount` | Since the session started |
 | `lastFrameTimeNanos` | Time of the newest frame, in nanoseconds |
 
-`FramePulseConfig` options:
+Build a `FramePulseConfig` to change the defaults:
+
+```kotlin
+val config = FramePulseConfig.Builder()
+    .windowDurationMs(2_000)
+    .reportIntervalMs(500)
+    .build()
+```
 
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `windowDurationMs` | 1000 | Rolling window length |
-| `expectedFramePeriodMs` | 16.67 | Frame budget; set it with `withRefreshRate(hz)`. Replaced by the display's rate when you pass an `Activity` or a `Display` |
+| `expectedFramePeriodMs` | 16.67 | Frame budget; or set it with `refreshRate(hz)`. Replaced by the display's rate when you pass an `Activity` or a `Display` |
 | `jankThresholdMultiplier` | 1.5 | Jank if frame time > budget × multiplier (must be ≥ 1.0). Not used for drawn frames on API 31+ |
 | `reportIntervalMs` | 250 | Minimum time between listener calls; 0 = every frame |
+
+`config.newBuilder()` starts a builder from an existing config.
+
+From Java, `start` is static and has overloads without the optional arguments:
+
+```java
+session = FramePulse.start(this, metrics -> Log.d("FramePulse", "fps=" + metrics.getFps()));
+```
 
 ## Jank frames
 
@@ -323,10 +339,10 @@ FramePulse
 ├── app/                 Demo application (Compose)
 │
 ├── framepulse/
-│   ├── api/             Public API: FramePulse, config, listener, session
-│   ├── internal/        Implementation (not public): FrameMonitor, FPSCalculator, session,
-│   │                    frame and refresh-rate sources
-│   └── model/           Immutable FrameMetrics
+│   ├── (root package)   Public API: FramePulse, config, listeners, session and the
+│   │                    immutable results (FramePulseMetrics, JankFrame, SessionSummary)
+│   └── internal/        Implementation (not public): FrameMonitor, FPSCalculator, session,
+│                        frame and refresh-rate sources
 │
 ├── docs/
 │

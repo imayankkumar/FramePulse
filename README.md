@@ -133,7 +133,16 @@ VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(fram
 
 ## How to add FramePulse to your project?
 
-FramePulse is not published to Maven yet. Include it as a module:
+FramePulse is not on Maven Central yet. Its first release will be:
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    implementation("io.github.imayankkumar:framepulse:0.1.0")
+}
+```
+
+Until then, include it as a module:
 
 ```kotlin
 // settings.gradle.kts
@@ -411,6 +420,40 @@ When you change the public API on purpose, update the file and commit it with th
 
 Adding to the API is safe. Removing or changing anything already listed breaks binary compatibility and needs a new major version.
 
+## How to publish a release?
+
+`framepulse/build.gradle.kts` sets the coordinates (`io.github.imayankkumar:framepulse`), the version and the POM, using the [Gradle Maven Publish Plugin](https://vanniktech.github.io/gradle-maven-publish-plugin/central/). A release contains the AAR, a sources jar and a javadoc jar generated from the KDoc.
+
+To try the artifacts in another project first, publish them to your local Maven repository (`~/.m2`) and add `mavenLocal()` to that project's repositories:
+
+```bash
+# Publish to the local Maven repository
+./gradlew :framepulse:publishToMavenLocal
+```
+
+Releasing to Maven Central needs, once:
+
+- An account on the [Central Portal](https://central.sonatype.com) signed in with GitHub, which verifies the `io.github.imayankkumar` namespace.
+- A user token from the portal, and a GPG key whose public key is on a key server.
+- Both in `~/.gradle/gradle.properties` (never in this repository):
+
+```properties
+mavenCentralUsername=<token username>
+mavenCentralPassword=<token password>
+signing.keyId=<last 8 characters of the key ID>
+signing.password=<key password>
+signing.secretKeyRingFile=<path to the exported secret key ring>
+```
+
+Then set the version in `framepulse/build.gradle.kts`, and:
+
+```bash
+# Upload the signed release; it waits in the Central Portal until you publish it there
+./gradlew :framepulse:publishToMavenCentral
+```
+
+Publications are signed only when a signing key is configured, and Maven Central rejects unsigned uploads.
+
 ## The complete project folder structure
 
 ```
@@ -558,7 +601,7 @@ Adding to the API is safe. Removing or changing anything already listed breaks b
 
 ## TODO
 
-- Maven Central publishing
+- Release 0.1.0 to Maven Central
 - Compose integration
 
 ## If this project helps you, give it a ⭐

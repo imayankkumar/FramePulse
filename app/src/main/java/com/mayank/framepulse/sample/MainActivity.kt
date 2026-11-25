@@ -80,9 +80,14 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    /** Deliberately freezes the main thread so the next frame takes long (jank). */
+    /**
+     * Deliberately freezes the main thread so the next frame takes long (jank). The tag shows
+     * on that jank frame, although it is removed before the frame is reported.
+     */
     private fun blockMainThread(durationMs: Long) {
+        session?.setTag("action", "block main thread")
         Thread.sleep(durationMs)
+        session?.removeTag("action")
     }
 }
 
@@ -164,11 +169,11 @@ private fun Metric(label: String, value: String) {
     }
 }
 
-/** For example "212 ms (budget 16.7 ms), mostly unknown delay". */
-private fun describe(frame: JankFrame): String {
-    val summary = "%.0f ms (budget %.1f ms)".format(Locale.US, frame.durationMs, frame.budgetMs)
-    val stage = frame.stages?.let(::longestStage) ?: return summary
-    return "$summary, mostly $stage"
+/** For example "212 ms (budget 16.7 ms), mostly input, action=block main thread". */
+private fun describe(frame: JankFrame): String = buildString {
+    append("%.0f ms (budget %.1f ms)".format(Locale.US, frame.durationMs, frame.budgetMs))
+    frame.stages?.let { append(", mostly ").append(longestStage(it)) }
+    frame.tags.forEach { (name, value) -> append(", ").append(name).append('=').append(value) }
 }
 
 private fun longestStage(stages: FrameStages): String = listOf(

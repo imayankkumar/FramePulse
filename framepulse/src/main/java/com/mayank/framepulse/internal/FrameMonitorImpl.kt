@@ -99,4 +99,4 @@ internal class FrameMonitorImpl(
     }
 }
 
-private fun isMainLooperThread(): Boolean = Looper.myLooper() == Looper.getMainLooper()
+internal fun isMainLooperThread(): Boolean = Looper.myLooper() == Looper.getMainLooper()

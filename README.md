@@ -33,6 +33,7 @@ FramePulse goes the other way. Its goals are to:
 - Optional frame budget that follows display refresh-rate changes during a session
 - Listener API delivering immutable `FrameMetrics` snapshots
 - Optional per-frame jank callback with a stage breakdown (input, animation, layout, draw, sync, GPU) for drawn frames
+- Tags (for example the screen, or "scrolling") that say what the app was doing during each jank frame
 - Explicit session lifecycle (start / stop, no restart)
 - JVM unit tests for the metrics math and the session state machine
 - GitHub Actions CI (`./gradlew build test`)
@@ -217,8 +218,29 @@ session = FramePulse.start(
 | `isFrozen` | Whether it took longer than 700 ms |
 | `frameTimeNanos` | When it happened, in the same time base as `FrameMetrics.lastFrameTimeNanos` |
 | `stages` | Where the time went, for drawn frames (API 24+); `null` for `Choreographer` frames |
+| `tags` | Tags that were set while the frame ran (see below); empty when none |
 
 `FrameStages` holds the platform's stage durations in milliseconds: `unknownDelayMs` (the main thread was busy before the frame could start), `inputHandlingMs`, `animationMs`, `layoutMeasureMs`, `drawMs`, `syncMs`, `commandIssueMs`, `swapBuffersMs` and `gpuMs` (API 31+, otherwise `null`). The stages partly overlap, so they do not add up to `durationMs`. A `JankFrame` is only allocated for a jank frame; smooth frames allocate nothing.
+
+## Tags
+
+Tags say what the app was doing, so a jank frame tells you where it happened. Set them on the session from the main thread:
+
+```kotlin
+session?.setTag("screen", "Feed")
+
+recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+    override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+            session?.removeTag("scrolling")
+        } else {
+            session?.setTag("scrolling", "true")
+        }
+    }
+})
+```
+
+A tag belongs to every frame that ran while it was set, even partly. Drawn frames are reported a little after they happen, so a tag removed right when scrolling stops still shows on the last frames of the scroll. Setting a new value for a name replaces the old one from then on.
 
 ---
 

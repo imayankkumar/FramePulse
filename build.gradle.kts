@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.androidx.benchmark) apply false
+    alias(libs.plugins.vanniktech.maven.publish) apply false
     // Checks the library's public API against framepulse/api/framepulse.api on every build.
     alias(libs.plugins.kotlinx.binary.compatibility.validator)
 }

@@ -30,7 +30,7 @@ jobs:
 
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: '**/build/reports/tests/'
@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload instrumentation reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: instrumentation-reports-api-${{ matrix.api-level }}
           path: framepulse/build/reports/androidTests/

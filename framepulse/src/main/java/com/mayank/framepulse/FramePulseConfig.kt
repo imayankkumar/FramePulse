@@ -18,7 +18,7 @@ package com.mayank.framepulse
  * [expectedFramePeriodMs] at start and whenever it changes.
  *
  * @property windowDurationMs Length of the rolling window used for FPS, average and max frame
- *   time, and [FrameMetrics.jankCount]. Must be > 0.
+ *   time, and [FramePulseMetrics.jankCount]. Must be > 0.
  * @property expectedFramePeriodMs Expected time between frames, i.e. `1000 / refreshRateHz`.
  *   Must be > 0.
  * @property jankThresholdMultiplier A frame counts as jank when its frame time is strictly

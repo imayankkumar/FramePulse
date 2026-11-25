@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal.metrics
 
 import com.mayank.framepulse.FramePulseConfig
-import com.mayank.framepulse.FrameMetrics
+import com.mayank.framepulse.FramePulseMetrics
 import java.util.Arrays
 
 /**
@@ -31,7 +31,7 @@ import java.util.Arrays
  * - Percentiles are nearest-rank over the frame times in the window, computed only when a
  *   snapshot is reported by sorting a copy of the window.
  * - A frame is frozen when its frame time is strictly longer than
- *   [FrameMetrics.FROZEN_FRAME_THRESHOLD_MS].
+ *   [FramePulseMetrics.FROZEN_FRAME_THRESHOLD_MS].
  *
  * Snapshots are produced on the first frame time and then at most once per
  * [FramePulseConfig.reportIntervalMs] (measured on the frame clock). Other calls return null.
@@ -39,7 +39,7 @@ import java.util.Arrays
  * Threading: not thread-safe. Called only from the frame source's thread (the main thread).
  *
  * Allocation: the ring buffer and the sort buffer grow when the window holds more frames than
- * they can store and are then reused, so steady-state frames do not allocate. A [FrameMetrics]
+ * they can store and are then reused, so steady-state frames do not allocate. A [FramePulseMetrics]
  * object is allocated only when a snapshot is reported.
  */
 internal class RollingWindowFpsCalculator : FPSCalculator {
@@ -75,7 +75,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
     override var lastFrameBudgetNanos: Double = 0.0
         private set
 
-    override fun onFrame(frameTimeNanos: Long, config: FramePulseConfig): FrameMetrics? {
+    override fun onFrame(frameTimeNanos: Long, config: FramePulseConfig): FramePulseMetrics? {
         lastFrameWasRecorded = false
         lastFrameWasJank = false
         val previous = lastFrameTimeNanos
@@ -99,7 +99,7 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
         durationNanos: Long,
         deadlineNanos: Long,
         config: FramePulseConfig,
-    ): FrameMetrics? {
+    ): FramePulseMetrics? {
         lastFrameWasRecorded = false
         lastFrameWasJank = false
         if (durationNanos <= 0L) return null
@@ -204,11 +204,11 @@ internal class RollingWindowFpsCalculator : FPSCalculator {
      *
      * @param spanNanos The length of time the frames in the window are counted over.
      */
-    private fun snapshot(frameTimeNanos: Long, spanNanos: Long): FrameMetrics {
+    private fun snapshot(frameTimeNanos: Long, spanNanos: Long): FramePulseMetrics {
         val sorted = sortedDurations
         for (i in 0 until size) sorted[i] = durations[(head + i) % durations.size]
         Arrays.sort(sorted, 0, size)
-        return FrameMetrics(
+        return FramePulseMetrics(
             lastFrameTimeNanos = frameTimeNanos,
             fps = size * NANOS_PER_SECOND / spanNanos,
             frameCount = size,

@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal.metrics
 
 import com.mayank.framepulse.FramePulseConfig
-import com.mayank.framepulse.FrameMetrics
+import com.mayank.framepulse.FramePulseMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -13,7 +13,7 @@ class RollingWindowPercentilesAndFrozenFramesTest {
     /** Report on every frame so each call can be inspected. 60 Hz budget, 25 ms threshold. */
     private val everyFrame = FramePulseConfig(reportIntervalMs = 0)
 
-    private fun measured(timeNanos: Long, durationNanos: Long): FrameMetrics? =
+    private fun measured(timeNanos: Long, durationNanos: Long): FramePulseMetrics? =
         calculator.onMeasuredFrame(
             frameTimeNanos = timeNanos,
             durationNanos = durationNanos,
@@ -21,13 +21,13 @@ class RollingWindowPercentilesAndFrozenFramesTest {
             config = everyFrame,
         )
 
-    private fun tick(timeNanos: Long): FrameMetrics? = calculator.onFrame(timeNanos, everyFrame)
+    private fun tick(timeNanos: Long): FramePulseMetrics? = calculator.onFrame(timeNanos, everyFrame)
 
     @Test
     fun percentilesUseTheNearestRank() {
         // Durations 1..100 ms in a scrambled order, all inside one window.
         val durationsMs = (1..100L).sortedBy { (it * 37) % 101 }
-        var metrics: FrameMetrics? = null
+        var metrics: FramePulseMetrics? = null
         durationsMs.forEachIndexed { i, durationMs ->
             metrics = measured(START + i * 5 * NANOS_PER_MS, durationMs * NANOS_PER_MS)
         }
@@ -65,7 +65,7 @@ class RollingWindowPercentilesAndFrozenFramesTest {
     fun percentilesOnlyCoverTheWindow() {
         // Slow frames first, then a full second of fast ones that pushes them out.
         for (i in 0 until 30) measured(START + i * PERIOD_60HZ, 40 * NANOS_PER_MS)
-        var metrics: FrameMetrics? = null
+        var metrics: FramePulseMetrics? = null
         for (i in 30 until 120) metrics = measured(START + i * PERIOD_60HZ, 5 * NANOS_PER_MS)
 
         assertEquals(5.0, metrics!!.p99FrameTimeMs, 0.0)
@@ -74,7 +74,7 @@ class RollingWindowPercentilesAndFrozenFramesTest {
 
     @Test
     fun aFrameIsFrozenOnlyWhenStrictlyLongerThanTheThreshold() {
-        val threshold = FrameMetrics.FROZEN_FRAME_THRESHOLD_MS * NANOS_PER_MS
+        val threshold = FramePulseMetrics.FROZEN_FRAME_THRESHOLD_MS * NANOS_PER_MS
 
         val atThreshold = measured(START, threshold)!!
         val overThreshold = measured(START + threshold, threshold + 1)!!
@@ -90,7 +90,7 @@ class RollingWindowPercentilesAndFrozenFramesTest {
     fun frozenFramesLeaveTheWindowButStayInTheTotal() {
         measured(START, 900 * NANOS_PER_MS)
         val resume = START + 900 * NANOS_PER_MS
-        var metrics: FrameMetrics? = null
+        var metrics: FramePulseMetrics? = null
         for (i in 0 until 90) metrics = measured(resume + i * PERIOD_60HZ, 5 * NANOS_PER_MS)
 
         assertEquals(0, metrics!!.frozenFrameCount)

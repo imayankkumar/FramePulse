@@ -4,7 +4,7 @@ package com.mayank.framepulse
  * Totals for a whole FramePulse session, from
  * [FramePulseSession.summary].
  *
- * A frame counts here under the same rules as [FrameMetrics]: drawn frames for a session started
+ * A frame counts here under the same rules as [FramePulseMetrics]: drawn frames for a session started
  * with an `Activity` on API 24+, `Choreographer` intervals otherwise.
  *
  * Percentiles cover every frame of the session. To keep memory constant they are computed from a
@@ -16,7 +16,7 @@ package com.mayank.framepulse
  * @property frameCount Frames observed.
  * @property jankCount Jank frames observed.
  * @property frozenFrameCount Frames that took longer than
- *   [FrameMetrics.FROZEN_FRAME_THRESHOLD_MS].
+ *   [FramePulseMetrics.FROZEN_FRAME_THRESHOLD_MS].
  * @property p50FrameTimeMs Median frame time, in milliseconds.
  * @property p90FrameTimeMs 90th percentile frame time, in milliseconds.
  * @property p95FrameTimeMs 95th percentile frame time, in milliseconds.

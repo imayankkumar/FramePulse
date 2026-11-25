@@ -12,7 +12,7 @@ import com.mayank.framepulse.internal.metrics.nanosToMillis
 import com.mayank.framepulse.internal.source.FrameConsumer
 import com.mayank.framepulse.internal.source.FrameStageNanos
 import com.mayank.framepulse.internal.source.RefreshRateSource
-import com.mayank.framepulse.FrameMetrics
+import com.mayank.framepulse.FramePulseMetrics
 import com.mayank.framepulse.FrameStages
 import com.mayank.framepulse.JankFrame
 import com.mayank.framepulse.SessionSummary
@@ -173,7 +173,7 @@ internal class FramePulseSessionImpl(
         startNanos: Long,
         endNanos: Long,
         stages: FrameStageNanos?,
-        metrics: FrameMetrics?,
+        metrics: FramePulseMetrics?,
     ) {
         if (calculator.lastFrameWasRecorded) {
             val durationNanos = calculator.lastFrameDurationNanos

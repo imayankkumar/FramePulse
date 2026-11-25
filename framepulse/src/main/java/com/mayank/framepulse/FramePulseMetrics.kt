@@ -45,7 +45,7 @@ package com.mayank.framepulse
  * @property totalJankCount Jank frames observed since the session started.
  * @property totalFrozenFrameCount Frozen frames observed since the session started.
  */
-public data class FrameMetrics(
+public data class FramePulseMetrics(
     val lastFrameTimeNanos: Long,
     val fps: Double,
     val frameCount: Int,

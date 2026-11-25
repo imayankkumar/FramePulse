@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal.metrics
 
 import com.mayank.framepulse.FramePulseConfig
-import com.mayank.framepulse.FrameMetrics
+import com.mayank.framepulse.FramePulseMetrics
 
 /**
  * Computes frame-rate and timing statistics from frame ticks or from measured frames.
@@ -10,7 +10,7 @@ import com.mayank.framepulse.FrameMetrics
  * - Accept monotonic frame timestamps (e.g. `frameTimeNanos` from a frame source), or frames
  *   with a measured duration.
  * - Maintain a rolling window aligned with [FramePulseConfig.windowDurationMs].
- * - Produce immutable [FrameMetrics] snapshots for the API layer.
+ * - Produce immutable [FramePulseMetrics] snapshots for the API layer.
  *
  * Must not:
  * - Register frame callbacks or depend on platform frame sources directly.
@@ -27,12 +27,12 @@ internal interface FPSCalculator {
      *
      * @param frameTimeNanos Monotonic frame time from the frame source.
      * @param config Active session configuration.
-     * @return Latest [FrameMetrics], or null if insufficient data for a snapshot yet.
+     * @return Latest [FramePulseMetrics], or null if insufficient data for a snapshot yet.
      */
     fun onFrame(
         frameTimeNanos: Long,
         config: FramePulseConfig,
-    ): FrameMetrics?
+    ): FramePulseMetrics?
 
     /**
      * Records a frame whose duration the platform measured and returns updated metrics when a
@@ -42,14 +42,14 @@ internal interface FPSCalculator {
      * @param durationNanos How long the frame took.
      * @param deadlineNanos Time the system allotted to the frame; not positive when unknown.
      * @param config Active session configuration.
-     * @return Latest [FrameMetrics], or null if no snapshot is due.
+     * @return Latest [FramePulseMetrics], or null if no snapshot is due.
      */
     fun onMeasuredFrame(
         frameTimeNanos: Long,
         durationNanos: Long,
         deadlineNanos: Long,
         config: FramePulseConfig,
-    ): FrameMetrics?
+    ): FramePulseMetrics?
 
     /**
      * Whether the most recent [onFrame] or [onMeasuredFrame] call recorded a frame. False when

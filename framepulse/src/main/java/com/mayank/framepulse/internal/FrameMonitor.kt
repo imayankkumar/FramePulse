@@ -13,7 +13,7 @@ import com.mayank.framepulse.FramePulseConfig
  * Must not:
  * - Calculate FPS or classify jank (delegated to
  *   [com.mayank.framepulse.internal.metrics.FPSCalculator]).
- * - Expose public listener types or publish [com.mayank.framepulse.FrameMetrics] directly.
+ * - Expose public listener types or publish [com.mayank.framepulse.FramePulseMetrics] directly.
  *
  * The default implementation is [FrameMonitorImpl]. It uses a pluggable
  * frame source and forwards `frameTimeNanos` to the metrics layer on each frame tick.

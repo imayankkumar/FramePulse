@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal.metrics
 
 import com.mayank.framepulse.FramePulseConfig
-import com.mayank.framepulse.FrameMetrics
+import com.mayank.framepulse.FramePulseMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -98,7 +98,7 @@ class RollingWindowFpsCalculatorTest {
         assertEquals(1, atJank.jankCount)
 
         // Another 1.1 s of smooth frames pushes the long interval out of the 1 s window.
-        var metrics: FrameMetrics = atJank
+        var metrics: FramePulseMetrics = atJank
         repeat(66) {
             t += PERIOD_60HZ
             metrics = calculator.onFrame(t, everyFrame)!!
@@ -165,15 +165,15 @@ class RollingWindowFpsCalculatorTest {
         assertEquals(2_399L, metrics.totalFrameCount)
     }
 
-    private fun feedSteady(periodNanos: Long, frames: Int, config: FramePulseConfig): FrameMetrics {
-        var last: FrameMetrics? = null
+    private fun feedSteady(periodNanos: Long, frames: Int, config: FramePulseConfig): FramePulseMetrics {
+        var last: FramePulseMetrics? = null
         for (i in 0 until frames) {
             calculator.onFrame(i * periodNanos, config)?.let { last = it }
         }
         return assertNotNullAndGet(last)
     }
 
-    private fun assertNotNullAndGet(metrics: FrameMetrics?): FrameMetrics {
+    private fun assertNotNullAndGet(metrics: FramePulseMetrics?): FramePulseMetrics {
         assertNotNull(metrics)
         return metrics!!
     }

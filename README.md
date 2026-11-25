@@ -42,7 +42,7 @@ FramePulse goes the other way. Its goals are to:
 - Instrumentation tests on emulators (API 21, 24, 34) in CI; also passing on a Pixel 6 Pro (Android 14)
 - Microbenchmarks of the per-frame work: about 65 ns and no allocations per frame on a Pixel 6 Pro
 - GitHub Actions CI (`./gradlew build test`), including a check of the public API against `framepulse/api/framepulse.api`
-- Demo app with live metrics and a "cause jank" button
+- Demo app as a test bench: live dashboard, buttons that stall the main thread, a janky list measured by `monitorActivities`
 
 ## 📋 Planned
 
@@ -343,11 +343,25 @@ FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://
 
 # Demo app
 
-`:app` shows live FPS, jank in the window, jank since start and the max frame time for the frames its window draws. It also has a **Block main thread for 200 ms** button: press it and the next frame takes about 200 ms, so the jank count goes up. On an idle screen the FPS is low, because the window only draws when the numbers change.
+`:app` is a test bench: screens that cause jank on purpose, so you can see what FramePulse reports for it.
 
 ```bash
 ./gradlew :app:installDebug
+adb logcat -s FramePulse
 ```
+
+- **Dashboard** (`MainActivity`) runs its own session and shows live FPS, jank, frozen frames, p50 / p95 / max and the last jank frame with its slowest stage and tags. **Block 200 ms** and **Block 800 ms (frozen)** stall the main thread, tagged `action`. **Animate** draws a new frame every vsync; without it the FPS is low, because the window only draws when something changes.
+- **Janky list** (`JankyListActivity`) has 1,000 rows that each busy-wait 0, 2 or 8 ms on the main thread when they appear. It has no FramePulse code: `SampleApplication` measures every activity with `FramePulse.monitorActivities`, and the list only sets the tags `work` and `scrolling` on the session `sessionFor(activity)` returns.
+
+When an activity stops, its summary goes to logcat and to the dashboard's **Activity summaries**. Scrolling the list at 8 ms per row on a Pixel 6 Pro:
+
+```
+JankyListActivity stopped: 709 frames in 16.5 s, 40 jank (5.6%), 0 frozen
+p50 / p95 / p99 / max: 6.5 / 20.2 / 45.8 / 169.6 ms
+scrolling=true: 613 frames, 38 jank (6.2%)
+```
+
+The debug build is slower than a release build, and the dashboard's own updates show up as a few jank frames per second (see the observer effect under [What this measures and what it doesn't](#what-this-measures-and-what-it-doesnt)).
 
 ---
 

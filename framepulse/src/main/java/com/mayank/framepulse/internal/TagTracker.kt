@@ -1,5 +1,7 @@
 package com.mayank.framepulse.internal
 
+import com.mayank.framepulse.model.TagSummary
+
 /**
  * Remembers when each tag was set and removed, so a frame can be given the tags that applied
  * while it ran.
@@ -12,13 +14,35 @@ package com.mayank.framepulse.internal
  * Removed tags are kept until [forgetRemovedBefore] passes their removal time, and at most
  * [maxRemovedEntries] of them, so memory stays bounded while no frames arrive.
  *
+ * Each tag value also keeps session counters ([countFrame], [summaries]) for the whole session,
+ * for at most [maxCountedValues] distinct name and value pairs. Values set after that limit
+ * still appear on jank frames but are not counted.
+ *
  * All times are in the `System.nanoTime()` time base, like frame times.
  *
  * Threading: not thread-safe. Main thread only.
  */
-internal class TagTracker(private val maxRemovedEntries: Int = MAX_REMOVED_ENTRIES) {
+internal class TagTracker(
+    private val maxRemovedEntries: Int = MAX_REMOVED_ENTRIES,
+    private val maxCountedValues: Int = MAX_COUNTED_VALUES,
+) {
 
-    private class Entry(val name: String, val value: String, val addedNanos: Long) {
+    /** Session counters for one name and value pair. */
+    private class Counters(val name: String, val value: String) {
+        var frames = 0L
+        var janks = 0L
+        var frozen = 0L
+
+        /** The [frameNumber] last counted, so overlapping entries count a frame once. */
+        var lastFrame = -1L
+    }
+
+    private class Entry(
+        val name: String,
+        val value: String,
+        val addedNanos: Long,
+        val counters: Counters?,
+    ) {
         var removedNanos: Long = STILL_SET
         val isRemoved: Boolean get() = removedNanos != STILL_SET
     }
@@ -27,6 +51,11 @@ internal class TagTracker(private val maxRemovedEntries: Int = MAX_REMOVED_ENTRI
     private val entries = ArrayList<Entry>()
     private var removedCount = 0
 
+    // Counters by name, then by value, in the order they were first set.
+    private val counters = LinkedHashMap<String, LinkedHashMap<String, Counters>>()
+    private var counterCount = 0
+    private var frameNumber = 0L
+
     /** Sets [name] to [value]. Setting the value a tag already has changes nothing. */
     fun set(name: String, value: String, nowNanos: Long) {
         val current = currentEntry(name)
@@ -34,7 +63,7 @@ internal class TagTracker(private val maxRemovedEntries: Int = MAX_REMOVED_ENTRI
             if (current.value == value) return
             markRemoved(current, nowNanos)
         }
-        entries += Entry(name, value, nowNanos)
+        entries += Entry(name, value, nowNanos, countersFor(name, value))
         trimRemoved()
     }
 
@@ -62,6 +91,42 @@ internal class TagTracker(private val maxRemovedEntries: Int = MAX_REMOVED_ENTRI
     }
 
     /**
+     * Counts one frame that ran from [startNanos] to [endNanos] for every tag value that was set
+     * during it. Does not allocate.
+     */
+    fun countFrame(startNanos: Long, endNanos: Long, isJank: Boolean, isFrozen: Boolean) {
+        val frame = frameNumber++
+        for (i in entries.indices) {
+            val entry = entries[i]
+            if (entry.addedNanos > endNanos) continue
+            if (entry.isRemoved && entry.removedNanos < startNanos) continue
+            val counted = entry.counters ?: continue
+            if (counted.lastFrame == frame) continue
+            counted.lastFrame = frame
+            counted.frames++
+            if (isJank) counted.janks++
+            if (isFrozen) counted.frozen++
+        }
+    }
+
+    /** One summary per counted name and value pair, in the order they were first set. */
+    fun summaries(): List<TagSummary> {
+        val result = ArrayList<TagSummary>(counterCount)
+        for (byValue in counters.values) {
+            for (counted in byValue.values) {
+                result += TagSummary(
+                    name = counted.name,
+                    value = counted.value,
+                    frameCount = counted.frames,
+                    jankCount = counted.janks,
+                    frozenFrameCount = counted.frozen,
+                )
+            }
+        }
+        return result
+    }
+
+    /**
      * Drops tags removed before [nanos]. Call with the start of the newest frame: later frames
      * start later, so those tags can no longer apply to any of them.
      */
@@ -86,6 +151,16 @@ internal class TagTracker(private val maxRemovedEntries: Int = MAX_REMOVED_ENTRI
         return null
     }
 
+    private fun countersFor(name: String, value: String): Counters? {
+        val byValue = counters[name]
+        byValue?.get(value)?.let { return it }
+        if (counterCount >= maxCountedValues) return null
+        val created = Counters(name, value)
+        (byValue ?: LinkedHashMap<String, Counters>().also { counters[name] = it })[value] = created
+        counterCount++
+        return created
+    }
+
     private fun markRemoved(entry: Entry, nowNanos: Long) {
         entry.removedNanos = nowNanos
         removedCount++
@@ -107,5 +182,6 @@ internal class TagTracker(private val maxRemovedEntries: Int = MAX_REMOVED_ENTRI
     private companion object {
         const val STILL_SET = Long.MIN_VALUE
         const val MAX_REMOVED_ENTRIES = 64
+        const val MAX_COUNTED_VALUES = 256
     }
 }

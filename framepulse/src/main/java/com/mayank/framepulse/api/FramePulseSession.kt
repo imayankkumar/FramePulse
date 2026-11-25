@@ -1,5 +1,7 @@
 package com.mayank.framepulse.api
 
+import com.mayank.framepulse.model.SessionSummary
+
 /**
  * Handle for an active FramePulse monitoring session.
  *
@@ -49,4 +51,16 @@ public interface FramePulseSession {
      * Main thread only: throws [IllegalStateException] on another thread.
      */
     public fun removeTag(name: String)
+
+    /**
+     * Returns totals for the session so far: frames, jank, frozen frames, frame-time
+     * percentiles and a breakdown per tag value. See [SessionSummary].
+     *
+     * Works at any time. After [stop] it returns the final totals; call it right before or after
+     * [stop] to get the report for the whole session.
+     *
+     * Main thread only: throws [IllegalStateException] on another thread. Allocates a new
+     * summary on each call, so do not call it on every frame.
+     */
+    public fun summary(): SessionSummary
 }

@@ -27,6 +27,7 @@ import com.mayank.framepulse.api.FramePulseSession
 import com.mayank.framepulse.model.FrameMetrics
 import com.mayank.framepulse.model.FrameStages
 import com.mayank.framepulse.model.JankFrame
+import com.mayank.framepulse.model.SessionSummary
 import com.mayank.framepulse.sample.ui.theme.FramePulseTheme
 import java.util.Locale
 
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
     private val config = FramePulseConfig.DEFAULT
     private var metrics by mutableStateOf<FrameMetrics?>(null)
     private var lastJankFrame by mutableStateOf<JankFrame?>(null)
+    private var summary by mutableStateOf<SessionSummary?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,7 +55,9 @@ class MainActivity : ComponentActivity() {
                         config = config,
                         metrics = metrics,
                         lastJankFrame = lastJankFrame,
+                        summary = summary,
                         onBlockMainThread = ::blockMainThread,
+                        onShowSummary = { summary = session?.summary() },
                         modifier = Modifier.padding(innerPadding),
                     )
                 }
@@ -65,6 +69,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         metrics = null
         lastJankFrame = null
+        summary = null
         // Passing the activity measures the frames its window draws (API 24+) and keeps the
         // frame budget in step with the display's refresh rate.
         session = FramePulse.start(
@@ -72,6 +77,7 @@ class MainActivity : ComponentActivity() {
             config = config,
             jankFrameListener = { lastJankFrame = it },
         ) { metrics = it }
+        session?.setTag("screen", "demo")
     }
 
     override fun onStop() {
@@ -96,7 +102,9 @@ private fun MetricsScreen(
     config: FramePulseConfig,
     metrics: FrameMetrics?,
     lastJankFrame: JankFrame?,
+    summary: SessionSummary?,
     onBlockMainThread: (Long) -> Unit,
+    onShowSummary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -146,6 +154,13 @@ private fun MetricsScreen(
             Text("Block main thread for $BLOCK_DURATION_MS ms")
         }
 
+        Button(onClick = onShowSummary) {
+            Text("Show session summary")
+        }
+        if (summary != null) {
+            Text(summaryText(summary), style = MaterialTheme.typography.bodyMedium)
+        }
+
         Text(
             if (MEASURES_DRAWN_FRAMES) {
                 "FramePulse counts the frames this window draws. An idle screen draws almost " +
@@ -174,6 +189,40 @@ private fun describe(frame: JankFrame): String = buildString {
     append("%.0f ms (budget %.1f ms)".format(Locale.US, frame.durationMs, frame.budgetMs))
     frame.stages?.let { append(", mostly ").append(longestStage(it)) }
     frame.tags.forEach { (name, value) -> append(", ").append(name).append('=').append(value) }
+}
+
+/** A few lines with the session totals and one line per tag value. */
+private fun summaryText(summary: SessionSummary): String = buildString {
+    append(
+        "%d frames in %.1f s, %d jank (%.1f%%), %d frozen\n".format(
+            Locale.US,
+            summary.frameCount,
+            summary.durationMs / 1_000,
+            summary.jankCount,
+            summary.jankRate * 100,
+            summary.frozenFrameCount,
+        ),
+    )
+    append(
+        "p50 / p95 / p99 / max: %.1f / %.1f / %.1f / %.1f ms".format(
+            Locale.US,
+            summary.p50FrameTimeMs,
+            summary.p95FrameTimeMs,
+            summary.p99FrameTimeMs,
+            summary.maxFrameTimeMs,
+        ),
+    )
+    summary.tags.forEach { tag ->
+        append(
+            "\n%s=%s: %d frames, %d jank".format(
+                Locale.US,
+                tag.name,
+                tag.value,
+                tag.frameCount,
+                tag.jankCount,
+            ),
+        )
+    }
 }
 
 private fun longestStage(stages: FrameStages): String = listOf(

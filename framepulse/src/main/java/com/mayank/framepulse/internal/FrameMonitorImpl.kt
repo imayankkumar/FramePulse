@@ -1,5 +1,6 @@
 package com.mayank.framepulse.internal
 
+import android.os.Handler
 import android.os.Looper
 import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.internal.source.ChoreographerFrameSource
@@ -100,3 +101,10 @@ internal class FrameMonitorImpl(
 }
 
 internal fun isMainLooperThread(): Boolean = Looper.myLooper() == Looper.getMainLooper()
+
+private val mainHandler: Handler by lazy { Handler(Looper.getMainLooper()) }
+
+/** Runs [runnable] on the main thread, after the messages already queued there. */
+internal fun postToMainLooper(runnable: Runnable) {
+    mainHandler.post(runnable)
+}

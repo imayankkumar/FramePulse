@@ -35,7 +35,8 @@ FramePulse goes the other way. Its goals are to:
 - Optional per-frame jank callback with a stage breakdown (input, animation, layout, draw, sync, GPU) for drawn frames
 - Tags (for example the screen, or "scrolling") that say what the app was doing during each jank frame
 - Session summary: totals, jank rate, frozen frames, whole-session percentiles and a per-tag breakdown
-- Explicit session lifecycle (start / stop, no restart)
+- Explicit session lifecycle (start / stop, no restart); `stop()` works from any thread
+- `FramePulse.monitorActivities`: one call measures every activity from `onStart` to `onStop` and reports its summary
 - One public package, usable from Kotlin and Java; result types can gain fields without breaking compiled apps
 - JVM unit tests for the metrics math and the session state machine
 - GitHub Actions CI (`./gradlew build test`)
@@ -113,7 +114,7 @@ VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(fram
 
 **Known limitations**
 
-- **A pause counts as one long frame.** If no callback arrives for a while (for example the screen turns off while the session is running), the gap is recorded as a single janky frame. Stop the session in `onStop`.
+- **A pause counts as one long frame.** If no callback arrives for a while (for example the screen turns off while the session is running), the gap is recorded as a single janky frame. Stop the session in `onStop`, or use `FramePulse.monitorActivities`, which does that for you.
 - **Refresh-rate changes need the `Activity` or `Display` overload.** `FramePulse.start(config, listener)` uses a fixed budget for the whole session. On variable-refresh-rate displays (for example Pixel "Smooth Display"), the system can drop from 120 Hz to 60 Hz when the screen is idle. With a fixed 120 Hz budget, every 60 Hz frame then counts as jank. On a Pixel 6 Pro this showed up as ~65 FPS and dozens of "janks" per second on an idle screen. `FramePulse.start(context, display, config, listener)` follows the rate reported by `Display.getRefreshRate()` through `DisplayManager.DisplayListener` instead. Changes the system does not report there (for example per-app frame-rate overrides) are not seen, and the interval that spans a switch is judged against the new budget. This has been checked with unit tests only, not yet on a device.
 - **Observer effect.** The listener runs on the main thread, and whatever it does (for example updating UI) is measured too. In the debug build of the demo app on a Pixel 6 Pro, the demo's own metric updates (4 per second) were slow enough to register as about 4 janks per second while idle; `adb shell dumpsys gfxinfo` reported the same frames as janky ("Slow UI thread").
 - **Power.** Keeping a frame callback posted keeps vsync running. Stop the session when you don't need it.
@@ -290,13 +291,35 @@ override fun onStop() {
 
 Memory stays constant however long the session runs: the session percentiles come from a fixed histogram instead of a list of frames. They are rounded up to a multiple of 0.1 ms up to 50 ms and of 1 ms up to 1 s, and frames over 1 s report the maximum. The rolling-window percentiles in `FramePulseMetrics` stay exact. A frame counts for every tag value that was set while it ran, so tag counts can add up to more than `frameCount`. Up to 256 distinct tag values are counted per session.
 
+## Every activity, automatically
+
+To measure the whole app without touching each activity, call `FramePulse.monitorActivities` once in your `Application`. Every activity is measured from its `onStart` to its `onStop`, and its session summary is passed to your listener when it stops:
+
+```kotlin
+class MyApp : Application() {
+
+    override fun onCreate() {
+        super.onCreate()
+        FramePulse.monitorActivities(this) { activity, summary ->
+            Log.d("FramePulse", "%s: %d frames, %.1f%% jank, p95 %.1f ms".format(
+                activity.javaClass.simpleName,
+                summary.frameCount, summary.jankRate * 100, summary.p95FrameTimeMs))
+        }
+    }
+}
+```
+
+- Each session is tagged `activity` = the activity's class name (`FramePulse.ACTIVITY_TAG`), so jank frames from an optional shared `jankFrameListener` say which activity they came from.
+- `monitor.sessionFor(activity)` returns an activity's running session, for example to set more tags. `monitor.stop()` stops monitoring and reports the sessions still running.
+- A rotation stops the old activity and starts a new one, so it ends one session and starts another. An activity already started when you call `monitorActivities` is measured from its next `onStart`.
+
 ---
 
 # Threading and lifecycle
 
-- **Main-thread-confined.** Call `FramePulse.start()` and `session.stop()` on the main thread; both throw `IllegalStateException` otherwise. A rejected `stop()` leaves the session running, so you can still stop it from the main thread. FramePulse is not thread-safe and uses no locks.
+- **Main thread, except `stop()`.** Call `FramePulse.start()`, `setTag()`, `removeTag()` and `summary()` on the main thread; they throw `IllegalStateException` otherwise. `session.stop()` works on any thread: no listener call starts after it returns, and from another thread the unregistering is posted to the main thread.
 - **The listener runs on the main thread.** Keep it cheap. `FramePulseMetrics` is immutable, so you can hand it to another thread.
-- **You own the lifecycle.** FramePulse does not observe Activity or process lifecycle. Every `start()` needs a matching `stop()`. A session started with an `Activity` holds its window until you stop it. Calling `stop()` more than once is fine, and you can call it from inside the listener.
+- **You own a session from `start()`.** Stop it when you no longer need it, normally in `onStop`. A session started with an `Activity` also stops itself when the activity is destroyed, so a missing `stop()` cannot keep the window alive. Calling `stop()` more than once is fine, and you can call it from inside the listener. To have FramePulse start and stop sessions for you, use `FramePulse.monitorActivities` (see [Every activity, automatically](#every-activity-automatically)).
 - **No restart.** A stopped session stays stopped; call `FramePulse.start()` again for a new one.
 
 ---

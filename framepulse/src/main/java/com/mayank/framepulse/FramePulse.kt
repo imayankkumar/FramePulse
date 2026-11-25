@@ -1,10 +1,13 @@
 package com.mayank.framepulse
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.hardware.display.DisplayManager
 import android.os.Build
 import android.view.Display
+import com.mayank.framepulse.internal.ActivityDestroyWatcher
+import com.mayank.framepulse.internal.ActivityMonitorImpl
 import com.mayank.framepulse.internal.FrameMonitorImpl
 import com.mayank.framepulse.internal.FramePulseSessionImpl
 import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
@@ -17,7 +20,10 @@ import com.mayank.framepulse.internal.source.RefreshRateSource
 /**
  * Public entry point for FramePulse.
  *
- * Which `start` to use:
+ * The simplest setup is [monitorActivities]: one call in `Application.onCreate` measures every
+ * activity from `onStart` to `onStop` and reports a [SessionSummary] for each.
+ *
+ * To control a session yourself, use `start`:
  * - `start(activity, config, listener)` measures the frames the activity's window draws, with
  *   the durations the platform reports (API 24+). Prefer this one.
  * - The other two overloads need no window. They time `Choreographer` callbacks on the main
@@ -29,13 +35,14 @@ import com.mayank.framepulse.internal.source.RefreshRateSource
  * From Java the `start` methods are static, with overloads that leave out the optional
  * arguments: `FramePulse.start(activity, metrics -> { ... })`.
  *
- * Threading contract: FramePulse is main-thread-confined and is not thread-safe. Call [start]
- * and [FramePulseSession.stop] on the main thread. The listeners are invoked on the main thread,
- * so keep them cheap.
+ * Threading contract: call [start] on the main thread. [FramePulseSession.stop] works on any
+ * thread; the other session methods are main thread only. The listeners are invoked on the main
+ * thread, so keep them cheap.
  *
- * Lifecycle contract: the caller owns the session. FramePulse does not observe Activity or
- * process lifecycle; call [FramePulseSession.stop] when monitoring is no longer needed
- * (for example in `onStop`). A stopped session cannot be restarted; call [start] again.
+ * Lifecycle contract: the caller owns a session from [start]. Call [FramePulseSession.stop] when
+ * monitoring is no longer needed (for example in `onStop`). A session started with an `Activity`
+ * also stops itself when the activity is destroyed. A stopped session cannot be restarted; call
+ * [start] again.
  */
 public object FramePulse {
 
@@ -63,8 +70,10 @@ public object FramePulse {
      * Call this after the activity has set its content view (for example in `onStart`): reading
      * the window's decor view before that fixes the window's features.
      *
-     * The session keeps a reference to the activity's window until [FramePulseSession.stop], so
-     * stop it no later than `onDestroy`.
+     * The session keeps a reference to the activity's window until it stops. It stops itself when
+     * the activity is destroyed, but stop it yourself as soon as you no longer need it, normally
+     * in `onStop`: a stopped activity draws nothing, and on API 21 to 23 the time in the
+     * background would count as one long frame.
      *
      * @param activity The activity whose window is measured.
      * @param config Window, jank threshold multiplier and report interval.
@@ -84,21 +93,75 @@ public object FramePulse {
         jankFrameListener: JankFrameListener? = null,
         listener: FramePulseListener,
     ): FramePulseSession {
-        val frameSource: FrameSource = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            FrameMetricsFrameSource(activity.window)
-        } else {
-            ChoreographerFrameSource()
-        }
-        return startSession(
+        val watcher = ActivityDestroyWatcher(activity)
+        val session = startActivitySession(
+            activity = activity,
             config = config,
-            listener = listener,
             jankFrameListener = jankFrameListener,
-            frameSource = frameSource,
-            refreshRateSource = displayOf(activity)?.let { display ->
-                DisplayRefreshRateSource(displayManagerOf(activity), display)
-            },
+            listener = listener,
+            onStopped = watcher::unwatch,
         )
+        watcher.watch(session::stop)
+        return session
     }
+
+    /**
+     * Measures every activity of the app from its `onStart` to its `onStop`, and passes each
+     * activity's [SessionSummary] to [listener] when it stops. Call it once, in
+     * `Application.onCreate`:
+     *
+     * ```kotlin
+     * FramePulse.monitorActivities(this) { activity, summary ->
+     *     Log.d("FramePulse", "${activity.javaClass.simpleName}: ${summary.jankCount} jank")
+     * }
+     * ```
+     *
+     * Each activity gets its own session, started as by [start] with that activity, and tagged
+     * with [ACTIVITY_TAG] = the activity's class name. The tag shows on every [JankFrame], so a
+     * shared [jankFrameListener] can tell the activities apart; it also appears once in each
+     * summary's [SessionSummary.tags]. Use [ActivityMonitor.sessionFor] to set more tags.
+     *
+     * An activity that is already started when this is called is measured from its next
+     * `onStart`. A configuration change such as a rotation stops the old activity and starts a
+     * new one, so it ends one session and starts another.
+     *
+     * @param application The app's [Application]; its activity lifecycle callbacks are used.
+     * @param config Window, jank threshold multiplier and report interval for every session.
+     * @param jankFrameListener Optional. Receives every jank frame of every activity on the main
+     *   thread, as soon as it is measured.
+     * @param listener Receives each activity's summary when it stops.
+     * @return A handle to read an activity's session or to stop monitoring.
+     */
+    @JvmStatic
+    @JvmOverloads
+    public fun monitorActivities(
+        application: Application,
+        config: FramePulseConfig = FramePulseConfig.DEFAULT,
+        jankFrameListener: JankFrameListener? = null,
+        listener: ActivitySessionListener,
+    ): ActivityMonitor {
+        val monitor = ActivityMonitorImpl(
+            application = application,
+            startSession = { activity ->
+                startActivitySession(
+                    activity = activity,
+                    config = config,
+                    jankFrameListener = jankFrameListener,
+                    listener = NO_METRICS_LISTENER,
+                    onStopped = null,
+                ).also { it.setTag(ACTIVITY_TAG, nameOf(activity)) }
+            },
+            listener = listener,
+        )
+        monitor.start()
+        return monitor
+    }
+
+    /**
+     * Tag name that [monitorActivities] sets on each session. The value is the activity's simple
+     * class name (after R8 renaming in a minified build).
+     */
+    public const val ACTIVITY_TAG: String = "activity"
 
     /**
      * Starts a new monitoring session with a fixed frame budget, timing `Choreographer`
@@ -170,12 +233,37 @@ public object FramePulse {
         refreshRateSource = DisplayRefreshRateSource(displayManagerOf(context), display),
     )
 
+    private fun startActivitySession(
+        activity: Activity,
+        config: FramePulseConfig,
+        jankFrameListener: JankFrameListener?,
+        listener: FramePulseListener,
+        onStopped: (() -> Unit)?,
+    ): FramePulseSession {
+        val frameSource: FrameSource = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            FrameMetricsFrameSource(activity.window)
+        } else {
+            ChoreographerFrameSource()
+        }
+        return startSession(
+            config = config,
+            listener = listener,
+            jankFrameListener = jankFrameListener,
+            frameSource = frameSource,
+            refreshRateSource = displayOf(activity)?.let { display ->
+                DisplayRefreshRateSource(displayManagerOf(activity), display)
+            },
+            onStopped = onStopped,
+        )
+    }
+
     private fun startSession(
         config: FramePulseConfig,
         listener: FramePulseListener,
         jankFrameListener: JankFrameListener?,
         frameSource: FrameSource,
         refreshRateSource: RefreshRateSource?,
+        onStopped: (() -> Unit)? = null,
     ): FramePulseSession {
         val session = FramePulseSessionImpl(
             config = config,
@@ -186,10 +274,16 @@ public object FramePulse {
             },
             refreshRateSource = refreshRateSource,
             jankFrameListener = jankFrameListener,
+            onStopped = onStopped,
         )
         session.start()
         return session
     }
+
+    private val NO_METRICS_LISTENER = FramePulseListener { }
+
+    private fun nameOf(activity: Activity): String =
+        activity.javaClass.simpleName.ifEmpty { activity.javaClass.name }
 
     private fun displayManagerOf(context: Context): DisplayManager {
         val appContext = context.applicationContext ?: context

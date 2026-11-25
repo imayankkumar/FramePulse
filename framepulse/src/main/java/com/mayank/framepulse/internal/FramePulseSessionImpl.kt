@@ -16,6 +16,7 @@ import com.mayank.framepulse.FramePulseMetrics
 import com.mayank.framepulse.FrameStages
 import com.mayank.framepulse.JankFrame
 import com.mayank.framepulse.SessionSummary
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Internal [FramePulseSession]: wires a [FrameMonitor] to an [FPSCalculator] and the listeners.
@@ -28,6 +29,10 @@ import com.mayank.framepulse.SessionSummary
  * Calling [stop] from inside either listener is allowed and prevents any further calls, including
  * the second call for the same frame.
  *
+ * [stop] works on any thread. It records the stop at once, so no listener call starts after it
+ * returns, and unregisters the frame and refresh-rate sources on the main thread: right away when
+ * called there, otherwise through [postToMainThread].
+ *
  * When a [refreshRateSource] is given, the frame budget follows the display: the rate read at
  * [start] replaces [FramePulseConfig.expectedFramePeriodMs], and every later change replaces it
  * again. Each display change event allocates one [FramePulseConfig]. Frames allocate only when
@@ -37,8 +42,10 @@ import com.mayank.framepulse.SessionSummary
  * @param monitorFactory Builds the monitor from the per-frame consumer. Injected so tests can
  *   use a fake frame source.
  * @param refreshRateSource Optional display refresh-rate tracking. Null keeps the budget fixed.
- * @param isMainThread Injected so the tag methods can be unit tested on the JVM.
+ * @param isMainThread Injected so the main-thread checks can be unit tested on the JVM.
  * @param nanoTime Clock for tag changes, in the same time base as frame times.
+ * @param postToMainThread Runs the unregistering part of a [stop] made on another thread.
+ * @param onStopped Called once on the main thread after the sources are unregistered.
  */
 internal class FramePulseSessionImpl(
     config: FramePulseConfig,
@@ -49,16 +56,29 @@ internal class FramePulseSessionImpl(
     private val jankFrameListener: JankFrameListener? = null,
     private val isMainThread: () -> Boolean = ::isMainLooperThread,
     private val nanoTime: () -> Long = System::nanoTime,
+    private val postToMainThread: (Runnable) -> Unit = ::postToMainLooper,
+    private val onStopped: (() -> Unit)? = null,
 ) : FramePulseSession {
 
     private val tags = TagTracker()
     private val sessionStats = SessionFrameStats()
 
     private var sessionStartNanos = NOT_SET
-    private var sessionStopNanos = NOT_SET
+
+    /** Set once [start] has succeeded. Volatile so [stop] can read it on any thread. */
+    @Volatile
+    private var started = false
+
+    /** When [stop] was first called, or [NOT_SET]. The first caller wins on any thread. */
+    private val stopRequestedNanos = AtomicLong(NOT_SET)
+
+    private val stopRequested: Boolean
+        get() = stopRequestedNanos.get() != NOT_SET
 
     private val frameConsumer = object : FrameConsumer {
         override fun onFrameTick(frameTimeNanos: Long) {
+            // A stop made on another thread may not have unregistered the source yet.
+            if (stopRequested) return
             val metrics = calculator.onFrame(frameTimeNanos, activeConfig)
             report(
                 frameTimeNanos = frameTimeNanos,
@@ -76,6 +96,7 @@ internal class FramePulseSessionImpl(
             deadlineNanos: Long,
             stages: FrameStageNanos?,
         ) {
+            if (stopRequested) return
             val metrics = calculator.onMeasuredFrame(
                 frameTimeNanos,
                 durationNanos,
@@ -107,28 +128,34 @@ internal class FramePulseSessionImpl(
     fun start() {
         monitor.start(activeConfig)
         sessionStartNanos = nanoTime()
-        val source = refreshRateSource ?: return
-        try {
-            applyRefreshRate(source.start(::onRefreshRateChanged))
-        } catch (exception: Exception) {
-            monitor.stop()
-            source.stop()
-            throw exception
+        val source = refreshRateSource
+        if (source != null) {
+            try {
+                applyRefreshRate(source.start(::onRefreshRateChanged))
+            } catch (exception: Exception) {
+                monitor.stop()
+                source.stop()
+                throw exception
+            }
         }
+        started = true
     }
 
     override fun stop() {
-        val wasRunning = monitor.isRunning
-        // Throws off the main thread before changing anything (see FrameMonitorImpl.stop).
+        if (!started) return
+        if (!stopRequestedNanos.compareAndSet(NOT_SET, nanoTime())) return
+        if (isMainThread()) unregister() else postToMainThread(Runnable { unregister() })
+    }
+
+    /** Main thread only. Runs once, after the first [stop]. */
+    private fun unregister() {
         monitor.stop()
-        if (wasRunning) {
-            sessionStopNanos = nanoTime()
-            refreshRateSource?.stop()
-        }
+        refreshRateSource?.stop()
+        onStopped?.invoke()
     }
 
     override val isRunning: Boolean
-        get() = monitor.isRunning
+        get() = started && !stopRequested
 
     override fun setTag(name: String, value: String) {
         assertMainThread("setTag")
@@ -142,7 +169,8 @@ internal class FramePulseSessionImpl(
 
     override fun summary(): SessionSummary {
         assertMainThread("summary")
-        val endNanos = if (sessionStopNanos != NOT_SET) sessionStopNanos else nanoTime()
+        val stopNanos = stopRequestedNanos.get()
+        val endNanos = if (stopNanos != NOT_SET) stopNanos else nanoTime()
         val stats = sessionStats
         return SessionSummary(
             durationMs = if (sessionStartNanos == NOT_SET) {
@@ -194,7 +222,7 @@ internal class FramePulseSessionImpl(
         if (jankListener != null && jankFrame != null) {
             jankListener.onJankFrame(jankFrame)
             // The jank listener may have stopped the session.
-            if (!monitor.isRunning) return
+            if (stopRequested) return
         }
         if (metrics != null) listener.onMetrics(metrics)
     }
@@ -224,7 +252,7 @@ internal class FramePulseSessionImpl(
     }
 
     private fun onRefreshRateChanged(refreshRateHz: Float) {
-        if (!monitor.isRunning) return
+        if (!isRunning) return
         applyRefreshRate(refreshRateHz)
     }
 

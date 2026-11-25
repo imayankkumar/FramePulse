@@ -34,8 +34,9 @@ import java.util.Locale
 /**
  * Demo: shows live FramePulse metrics and lets you block the main thread on purpose.
  *
- * The session is started in [onStart] and stopped in [onStop]; FramePulse does not manage
- * lifecycle by itself.
+ * The session is started in [onStart] and stopped in [onStop], because the screen shows its live
+ * metrics. To only log a summary per activity, `FramePulse.monitorActivities` in the
+ * `Application` starts and stops sessions by itself.
  */
 class MainActivity : ComponentActivity() {
 

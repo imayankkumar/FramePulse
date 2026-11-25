@@ -30,6 +30,7 @@ class FramePulseSessionJankFramesTest {
             monitorFactory = { consumer ->
                 FrameMonitorImpl(frames, consumer, isMainThread = { true })
             },
+            isMainThread = { true },
             jankFrameListener = { frame ->
                 events += frame
                 onJank(frame)
@@ -182,6 +183,7 @@ class FramePulseSessionJankFramesTest {
             monitorFactory = { consumer ->
                 FrameMonitorImpl(frames, consumer, isMainThread = { true })
             },
+            isMainThread = { true },
         ).start()
 
         frames.emitMeasured(START, 40 * NANOS_PER_MS)

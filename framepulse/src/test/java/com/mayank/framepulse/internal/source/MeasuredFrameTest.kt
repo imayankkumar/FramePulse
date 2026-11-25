@@ -1,6 +1,7 @@
 package com.mayank.framepulse.internal.source
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -9,6 +10,7 @@ class MeasuredFrameTest {
 
     private class Recorder : FrameConsumer {
         val frames = mutableListOf<Triple<Long, Long, Long>>()
+        val stages = mutableListOf<FrameStageNanos?>()
 
         override fun onFrameTick(frameTimeNanos: Long) {
             throw AssertionError("a measured frame must not be delivered as a tick")
@@ -18,8 +20,10 @@ class MeasuredFrameTest {
             frameTimeNanos: Long,
             durationNanos: Long,
             deadlineNanos: Long,
+            stages: FrameStageNanos?,
         ) {
             frames += Triple(frameTimeNanos, durationNanos, deadlineNanos)
+            this.stages += stages
         }
     }
 
@@ -31,6 +35,7 @@ class MeasuredFrameTest {
         intendedVsyncNanos: Long = 9_000_000_000L,
         deadlineNanos: Long = 16_000_000L,
         nowNanos: Long = 9_020_000_000L,
+        stages: FrameStageNanos? = null,
     ) = deliverMeasuredFrame(
         consumer = recorder,
         isFirstDrawFrame = isFirstDrawFrame,
@@ -38,6 +43,7 @@ class MeasuredFrameTest {
         intendedVsyncNanos = intendedVsyncNanos,
         deadlineNanos = deadlineNanos,
         nowNanos = nowNanos,
+        stages = stages,
     )
 
     @Test
@@ -82,5 +88,14 @@ class MeasuredFrameTest {
         )
 
         assertEquals(9_015_000_000L, recorder.frames.single().first)
+    }
+
+    @Test
+    fun stagesArePassedThroughUnchanged() {
+        val stages = FrameStageNanos()
+
+        deliver(stages = stages)
+
+        assertSame(stages, recorder.stages.single())
     }
 }

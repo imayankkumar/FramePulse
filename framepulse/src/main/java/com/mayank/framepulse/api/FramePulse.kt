@@ -23,9 +23,12 @@ import com.mayank.framepulse.internal.source.RefreshRateSource
  * - The other two overloads need no window. They time `Choreographer` callbacks on the main
  *   thread, which shows how regularly the main thread serviced vsync, not what was drawn.
  *
+ * Every overload takes an optional [JankFrameListener] that is called once for each jank frame,
+ * in addition to the [FramePulseListener] that receives the rolling-window metrics.
+ *
  * Threading contract: FramePulse is main-thread-confined and is not thread-safe. Call [start]
- * and [FramePulseSession.stop] on the main thread. The listener is invoked on the main thread,
- * so keep it cheap.
+ * and [FramePulseSession.stop] on the main thread. The listeners are invoked on the main thread,
+ * so keep them cheap.
  *
  * Lifecycle contract: the caller owns the session. FramePulse does not observe Activity or
  * process lifecycle; call [FramePulseSession.stop] when monitoring is no longer needed
@@ -48,6 +51,8 @@ public object FramePulse {
      *   refresh rate as in the overload that takes a [Display].
      * - The window must be hardware accelerated (the default). A software-rendered window
      *   reports no frames.
+     * - Each [com.mayank.framepulse.model.JankFrame] carries its stage breakdown
+     *   ([com.mayank.framepulse.model.FrameStages]).
      *
      * On API 21 to 23 this falls back to `Choreographer` callbacks with a budget that follows
      * the display's refresh rate, exactly like the overload that takes a [Display].
@@ -61,6 +66,8 @@ public object FramePulse {
      * @param activity The activity whose window is measured.
      * @param config Window, jank threshold multiplier and report interval.
      *   [FramePulseConfig.expectedFramePeriodMs] is replaced by the display's refresh rate.
+     * @param jankFrameListener Optional. Receives every jank frame on the main thread, as soon
+     *   as it is measured.
      * @param listener Receives immutable metrics on the main thread, at most once per
      *   [FramePulseConfig.reportIntervalMs].
      * @return A handle used to stop monitoring.
@@ -69,6 +76,7 @@ public object FramePulse {
     public fun start(
         activity: Activity,
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
+        jankFrameListener: JankFrameListener? = null,
         listener: FramePulseListener,
     ): FramePulseSession {
         val frameSource: FrameSource = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -79,6 +87,7 @@ public object FramePulse {
         return startSession(
             config = config,
             listener = listener,
+            jankFrameListener = jankFrameListener,
             frameSource = frameSource,
             refreshRateSource = displayOf(activity)?.let { display ->
                 DisplayRefreshRateSource(displayManagerOf(activity), display)
@@ -95,6 +104,8 @@ public object FramePulse {
      * switching), use the overload that takes a [Display] instead.
      *
      * @param config Window, frame budget, jank threshold and report interval.
+     * @param jankFrameListener Optional. Receives every jank frame on the main thread, as soon
+     *   as it is measured.
      * @param listener Receives immutable metrics on the main thread, at most once per
      *   [FramePulseConfig.reportIntervalMs].
      * @return A handle used to stop monitoring.
@@ -102,10 +113,12 @@ public object FramePulse {
      */
     public fun start(
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
+        jankFrameListener: JankFrameListener? = null,
         listener: FramePulseListener,
     ): FramePulseSession = startSession(
         config = config,
         listener = listener,
+        jankFrameListener = jankFrameListener,
         frameSource = ChoreographerFrameSource(),
         refreshRateSource = null,
     )
@@ -127,6 +140,8 @@ public object FramePulse {
      * @param display The display the measured window is on (for example `Activity.getDisplay()`
      *   on API 30+, or `WindowManager.getDefaultDisplay()` below).
      * @param config Window, jank threshold multiplier and report interval.
+     * @param jankFrameListener Optional. Receives every jank frame on the main thread, as soon
+     *   as it is measured.
      * @param listener Receives immutable metrics on the main thread, at most once per
      *   [FramePulseConfig.reportIntervalMs].
      * @return A handle used to stop monitoring.
@@ -136,10 +151,12 @@ public object FramePulse {
         context: Context,
         display: Display,
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
+        jankFrameListener: JankFrameListener? = null,
         listener: FramePulseListener,
     ): FramePulseSession = startSession(
         config = config,
         listener = listener,
+        jankFrameListener = jankFrameListener,
         frameSource = ChoreographerFrameSource(),
         refreshRateSource = DisplayRefreshRateSource(displayManagerOf(context), display),
     )
@@ -147,6 +164,7 @@ public object FramePulse {
     private fun startSession(
         config: FramePulseConfig,
         listener: FramePulseListener,
+        jankFrameListener: JankFrameListener?,
         frameSource: FrameSource,
         refreshRateSource: RefreshRateSource?,
     ): FramePulseSession {
@@ -158,6 +176,7 @@ public object FramePulse {
                 FrameMonitorImpl(frameSource = frameSource, frameConsumer = consumer)
             },
             refreshRateSource = refreshRateSource,
+            jankFrameListener = jankFrameListener,
         )
         session.start()
         return session

@@ -18,6 +18,7 @@ package com.mayank.framepulse.internal.source
  *   report it (below API 31).
  * @param nowNanos Current `System.nanoTime()`. Used to estimate the start when
  *   [intendedVsyncNanos] is missing.
+ * @param stages Stage durations of the frame, passed through unchanged.
  */
 internal fun deliverMeasuredFrame(
     consumer: FrameConsumer,
@@ -26,10 +27,11 @@ internal fun deliverMeasuredFrame(
     intendedVsyncNanos: Long,
     deadlineNanos: Long,
     nowNanos: Long,
+    stages: FrameStageNanos?,
 ) {
     if (isFirstDrawFrame || totalDurationNanos <= 0L) return
     val startNanos =
         if (intendedVsyncNanos > 0L) intendedVsyncNanos else nowNanos - totalDurationNanos
     val deadline = if (deadlineNanos > 0L) deadlineNanos else FrameConsumer.NO_DEADLINE
-    consumer.onFrameMeasured(startNanos, totalDurationNanos, deadline)
+    consumer.onFrameMeasured(startNanos, totalDurationNanos, deadline, stages)
 }

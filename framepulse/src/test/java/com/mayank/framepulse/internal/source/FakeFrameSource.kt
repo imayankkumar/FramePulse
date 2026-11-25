@@ -40,8 +40,13 @@ internal class FakeFrameSource : FrameSource {
     }
 
     /** Delivers a measured frame like a real source would: only while running. */
-    fun emitMeasured(frameTimeNanos: Long, durationNanos: Long, deadlineNanos: Long = -1L) {
-        consumer?.onFrameMeasured(frameTimeNanos, durationNanos, deadlineNanos)
+    fun emitMeasured(
+        frameTimeNanos: Long,
+        durationNanos: Long,
+        deadlineNanos: Long = -1L,
+        stages: FrameStageNanos? = null,
+    ) {
+        consumer?.onFrameMeasured(frameTimeNanos, durationNanos, deadlineNanos, stages)
     }
 
     /** Simulates a callback that was already queued when the source was stopped. */
@@ -51,6 +56,6 @@ internal class FakeFrameSource : FrameSource {
 
     /** Like [emitStray], for a measured frame. */
     fun emitStrayMeasured(frameTimeNanos: Long, durationNanos: Long) {
-        lastConsumer?.onFrameMeasured(frameTimeNanos, durationNanos, -1L)
+        lastConsumer?.onFrameMeasured(frameTimeNanos, durationNanos, -1L, null)
     }
 }

@@ -25,6 +25,8 @@ import com.mayank.framepulse.api.FramePulse
 import com.mayank.framepulse.api.FramePulseConfig
 import com.mayank.framepulse.api.FramePulseSession
 import com.mayank.framepulse.model.FrameMetrics
+import com.mayank.framepulse.model.FrameStages
+import com.mayank.framepulse.model.JankFrame
 import com.mayank.framepulse.sample.ui.theme.FramePulseTheme
 import java.util.Locale
 
@@ -39,6 +41,7 @@ class MainActivity : ComponentActivity() {
     private var session: FramePulseSession? = null
     private val config = FramePulseConfig.DEFAULT
     private var metrics by mutableStateOf<FrameMetrics?>(null)
+    private var lastJankFrame by mutableStateOf<JankFrame?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     MetricsScreen(
                         config = config,
                         metrics = metrics,
+                        lastJankFrame = lastJankFrame,
                         onBlockMainThread = ::blockMainThread,
                         modifier = Modifier.padding(innerPadding),
                     )
@@ -60,9 +64,14 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         metrics = null
+        lastJankFrame = null
         // Passing the activity measures the frames its window draws (API 24+) and keeps the
         // frame budget in step with the display's refresh rate.
-        session = FramePulse.start(this, config) { metrics = it }
+        session = FramePulse.start(
+            activity = this,
+            config = config,
+            jankFrameListener = { lastJankFrame = it },
+        ) { metrics = it }
     }
 
     override fun onStop() {
@@ -81,6 +90,7 @@ class MainActivity : ComponentActivity() {
 private fun MetricsScreen(
     config: FramePulseConfig,
     metrics: FrameMetrics?,
+    lastJankFrame: JankFrame?,
     onBlockMainThread: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -119,6 +129,14 @@ private fun MetricsScreen(
             )
         }
 
+        Column {
+            Text("Last jank frame", style = MaterialTheme.typography.labelMedium)
+            Text(
+                lastJankFrame?.let(::describe) ?: "None yet",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+
         Button(onClick = { onBlockMainThread(BLOCK_DURATION_MS) }) {
             Text("Block main thread for $BLOCK_DURATION_MS ms")
         }
@@ -145,6 +163,25 @@ private fun Metric(label: String, value: String) {
         Text(value, style = MaterialTheme.typography.displaySmall)
     }
 }
+
+/** For example "212 ms (budget 16.7 ms), mostly unknown delay". */
+private fun describe(frame: JankFrame): String {
+    val summary = "%.0f ms (budget %.1f ms)".format(Locale.US, frame.durationMs, frame.budgetMs)
+    val stage = frame.stages?.let(::longestStage) ?: return summary
+    return "$summary, mostly $stage"
+}
+
+private fun longestStage(stages: FrameStages): String = listOf(
+    "unknown delay" to stages.unknownDelayMs,
+    "input" to stages.inputHandlingMs,
+    "animation" to stages.animationMs,
+    "layout" to stages.layoutMeasureMs,
+    "draw" to stages.drawMs,
+    "sync" to stages.syncMs,
+    "command issue" to stages.commandIssueMs,
+    "swap buffers" to stages.swapBuffersMs,
+    "GPU" to (stages.gpuMs ?: 0.0),
+).maxBy { it.second }.first
 
 private const val BLOCK_DURATION_MS = 200L
 

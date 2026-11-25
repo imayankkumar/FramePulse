@@ -4,9 +4,9 @@ All notable changes to FramePulse are listed here. The format follows [Keep a Ch
 
 ## Unreleased
 
-## 0.1.0 - not released yet
+## 0.1.0 - 2026-11-25
 
-The first release, planned on Maven Central as `io.github.imayankkumar:framepulse:0.1.0`.
+The first release, on Maven Central as `io.github.imayankkumar:framepulse:0.1.0`.
 
 ### Added
 

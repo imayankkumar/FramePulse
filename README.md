@@ -133,7 +133,7 @@ VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(fram
 
 ## How to add FramePulse to your project?
 
-FramePulse is not on Maven Central yet. Its first release will be:
+FramePulse is on Maven Central. Make sure `mavenCentral()` is in your repositories (new Android projects have it), then add:
 
 ```kotlin
 // app/build.gradle.kts
@@ -142,19 +142,7 @@ dependencies {
 }
 ```
 
-Until then, include it as a module:
-
-```kotlin
-// settings.gradle.kts
-include(":framepulse")
-```
-
-```kotlin
-// app/build.gradle.kts
-dependencies {
-    implementation(project(":framepulse"))
-}
-```
+See [CHANGELOG.md](CHANGELOG.md) for what each version contains.
 
 ## How to start a session?
 
@@ -604,7 +592,6 @@ Publications are signed only when a signing key is configured, and Maven Central
 
 ## TODO
 
-- Release 0.1.0 to Maven Central
 - Compose integration
 
 ## If this project helps you in anyway, show your love ❤️ by putting a ⭐ on this project ✌️

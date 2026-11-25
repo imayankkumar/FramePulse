@@ -38,6 +38,14 @@ import java.util.concurrent.atomic.AtomicLong
  * again. Each display change event allocates one [FramePulseConfig]. Frames allocate only when
  * a snapshot or a jank frame is reported.
  *
+ * Measured frames come only when the window draws. When a measured frame is not covered by a
+ * snapshot, a check is posted to the main thread. Once the report interval has passed and no
+ * frame has been delivered for [IDLE_NANOS], those frames are reported in one snapshot, so the
+ * listener's last snapshot does not leave out the frames drawn just before the window went
+ * idle. The same clock ([nanoTime], `System.nanoTime()`) is used for frame times and for this
+ * check. After an idle report, the next one waits until a frame has been reported in the normal
+ * way, so a listener that redraws the window cannot keep it drawing.
+ *
  * @param jankFrameListener Optional; null skips building [JankFrame]s entirely.
  * @param monitorFactory Builds the monitor from the per-frame consumer. Injected so tests can
  *   use a fake frame source.
@@ -45,6 +53,8 @@ import java.util.concurrent.atomic.AtomicLong
  * @param isMainThread Injected so the main-thread checks can be unit tested on the JVM.
  * @param nanoTime Clock for tag changes, in the same time base as frame times.
  * @param postToMainThread Runs the unregistering part of a [stop] made on another thread.
+ * @param postDelayedToMainThread Runs the idle report check after a delay in milliseconds.
+ * @param cancelOnMainThread Removes a posted idle report check when the session stops.
  * @param onStopped Called once on the main thread after the sources are unregistered.
  */
 internal class FramePulseSessionImpl(
@@ -57,6 +67,8 @@ internal class FramePulseSessionImpl(
     private val isMainThread: () -> Boolean = ::isMainLooperThread,
     private val nanoTime: () -> Long = System::nanoTime,
     private val postToMainThread: (Runnable) -> Unit = ::postToMainLooper,
+    private val postDelayedToMainThread: (Runnable, Long) -> Unit = ::postToMainLooperDelayed,
+    private val cancelOnMainThread: (Runnable) -> Unit = ::removeFromMainLooper,
     private val onStopped: (() -> Unit)? = null,
 ) : FramePulseSession {
 
@@ -110,8 +122,33 @@ internal class FramePulseSessionImpl(
                 stages = stages,
                 metrics = metrics,
             )
+            lastMeasuredFrameNanos = nanoTime()
+            if (metrics != null) idleReportAllowed = true
+            if (!stopRequested && idleReportAllowed && !idleReportPosted &&
+                calculator.hasUnreportedFrames
+            ) {
+                postIdleReport(idleReportWaitNanos(lastMeasuredFrameNanos))
+            }
         }
     }
+
+    /**
+     * Reports the frames that no snapshot has covered yet once the window stops drawing. Only
+     * measured frames need it: a window draws only when something changes, while frame ticks
+     * keep arriving every vsync.
+     */
+    private val idleReport = Runnable { onIdleReportDue() }
+    private var idleReportPosted = false
+
+    /**
+     * False after an idle report until a frame is reported in the normal way. A listener that
+     * updates the screen makes the window draw again; without this, that frame would get its
+     * own idle report, which would draw again, and the window would never go idle.
+     */
+    private var idleReportAllowed = false
+
+    /** When the newest measured frame was delivered, on the [nanoTime] clock. */
+    private var lastMeasuredFrameNanos = NOT_SET
 
     private val monitor: FrameMonitor = monitorFactory(frameConsumer)
 
@@ -151,7 +188,43 @@ internal class FramePulseSessionImpl(
     private fun unregister() {
         monitor.stop()
         refreshRateSource?.stop()
+        if (idleReportPosted) {
+            idleReportPosted = false
+            cancelOnMainThread(idleReport)
+        }
         onStopped?.invoke()
+    }
+
+    /**
+     * How long to wait before the frames no snapshot covered yet can be reported: until the
+     * report interval has passed and no frame has been delivered for [IDLE_NANOS].
+     */
+    private fun idleReportWaitNanos(nowNanos: Long): Long {
+        val untilDue = calculator.nextReportDueNanos(activeConfig) - nowNanos
+        val untilQuiet = IDLE_NANOS - (nowNanos - lastMeasuredFrameNanos)
+        return if (untilDue > untilQuiet) untilDue else untilQuiet
+    }
+
+    private fun postIdleReport(waitNanos: Long) {
+        idleReportPosted = true
+        // Round up, so the report never runs before the window has been idle long enough.
+        postDelayedToMainThread(idleReport, (waitNanos + NANOS_PER_MILLI - 1) / NANOS_PER_MILLI)
+    }
+
+    private fun onIdleReportDue() {
+        idleReportPosted = false
+        if (stopRequested || !calculator.hasUnreportedFrames) return
+        val now = nanoTime()
+        // A frame delivered since the report was posted, or one that moved the due time, may
+        // mean the window is still drawing.
+        val waitNanos = idleReportWaitNanos(now)
+        if (waitNanos > 0L) {
+            postIdleReport(waitNanos)
+            return
+        }
+        val metrics = calculator.reportUnreportedFrames(now, activeConfig) ?: return
+        idleReportAllowed = false
+        listener.onMetrics(metrics)
     }
 
     override val isRunning: Boolean
@@ -264,6 +337,9 @@ internal class FramePulseSessionImpl(
 
     private companion object {
         const val NOT_SET = Long.MIN_VALUE
+
+        /** How long a window must draw nothing before its unreported frames are reported. */
+        const val IDLE_NANOS = 100L * NANOS_PER_MILLI
     }
 }
 

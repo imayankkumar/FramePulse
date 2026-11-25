@@ -81,7 +81,7 @@ Window draws a frame ──► platform FrameMetrics (TOTAL_DURATION, DEADLINE)
 
 **It does not**
 
-- **Report while the window is idle.** No frame means no listener call, so the last snapshot stays as it was until the window draws again. Idle time is never counted as jank.
+- **Report while the window is idle.** When the window stops drawing, the listener gets one more call with the frames drawn since its last call (about 100 ms later), then none until the window draws again. Idle time is never counted as jank.
 - Count the first frame of a new window layout. The platform expects that frame to be slow.
 - Work on a software-rendered window. The window must be hardware accelerated, which is the default.
 - See other windows, such as dialogs. Only the activity's own window is measured.

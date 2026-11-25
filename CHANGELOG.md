@@ -4,6 +4,10 @@ All notable changes to FramePulse are listed here. The format follows [Keep a Ch
 
 ## Unreleased
 
+### Fixed
+
+- A session started with an activity (API 24+) no longer leaves out the frames drawn just before the window goes idle. The listener gets one more snapshot with them about 100 ms after the window stops drawing, no sooner than `reportIntervalMs` after the previous one.
+
 ## 0.1.0 - 2026-11-25
 
 The first release, on Maven Central as `io.github.imayankkumar:framepulse:0.1.0`.

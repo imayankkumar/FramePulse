@@ -3,7 +3,9 @@ package com.mayank.framepulse.internal.metrics
 import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.FramePulseMetrics
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** [RollingWindowFpsCalculator.onMeasuredFrame]: frames with a platform-measured duration. */
@@ -168,6 +170,48 @@ class RollingWindowMeasuredFramesTest {
         assertEquals(START, reportTimes.first())
         assertEquals(21, reportTimes.size)
         reportTimes.zipWithNext { a, b -> assertEquals(50 * NANOS_PER_MS, b - a) }
+    }
+
+    @Test
+    fun framesAfterTheLastSnapshotAreReportedWithoutAnotherFrame() {
+        val config = FramePulseConfig.Builder().reportIntervalMs(250).build()
+        frame(timeNanos = START, durationMs = 5, config = config)!!
+        assertFalse(calculator.hasUnreportedFrames)
+        // Five more frames, then the window stops drawing. None of them is due a snapshot.
+        for (i in 1..4) {
+            assertNull(frame(timeNanos = START + i * PERIOD_60HZ, durationMs = 5, config = config))
+        }
+        assertNull(frame(timeNanos = START + 5 * PERIOD_60HZ, durationMs = 40, config = config))
+        assertTrue(calculator.hasUnreportedFrames)
+        assertEquals(START + 250 * NANOS_PER_MS, calculator.nextReportDueNanos(config))
+
+        val now = START + 400 * NANOS_PER_MS
+        val metrics = calculator.reportUnreportedFrames(now, config)!!
+
+        // The same window a due sixth frame would have reported: it ends at the newest frame.
+        assertEquals(START + 5 * PERIOD_60HZ, metrics.lastFrameTimeNanos)
+        assertEquals(6, metrics.frameCount)
+        assertEquals(6L, metrics.totalFrameCount)
+        assertEquals(40.0, metrics.maxFrameTimeMs, 0.001)
+        assertEquals(1, metrics.jankCount)
+        // Six frames over 5 periods plus the 40 ms newest frame.
+        assertEquals(6 / (5 * PERIOD_60HZ + 40 * NANOS_PER_MS).toDouble() * 1e9, metrics.fps, 0.001)
+        assertFalse(calculator.hasUnreportedFrames)
+        assertNull(calculator.reportUnreportedFrames(now, config))
+        // The next report is due one interval after this one.
+        assertEquals(now + 250 * NANOS_PER_MS, calculator.nextReportDueNanos(config))
+    }
+
+    @Test
+    fun aDueFrameLeavesNothingUnreported() {
+        val config = FramePulseConfig.Builder().reportIntervalMs(250).build()
+        frame(timeNanos = START, durationMs = 5, config = config)
+        frame(timeNanos = START + PERIOD_60HZ, durationMs = 5, config = config)
+
+        frame(timeNanos = START + 300 * NANOS_PER_MS, durationMs = 5, config = config)!!
+
+        assertFalse(calculator.hasUnreportedFrames)
+        assertNull(calculator.reportUnreportedFrames(START + 500 * NANOS_PER_MS, config))
     }
 
     @Test

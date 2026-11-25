@@ -108,3 +108,13 @@ private val mainHandler: Handler by lazy { Handler(Looper.getMainLooper()) }
 internal fun postToMainLooper(runnable: Runnable) {
     mainHandler.post(runnable)
 }
+
+/** Runs [runnable] on the main thread after [delayMs] milliseconds. */
+internal fun postToMainLooperDelayed(runnable: Runnable, delayMs: Long) {
+    mainHandler.postDelayed(runnable, delayMs)
+}
+
+/** Removes [runnable] from the main thread's queue if it has not run yet. */
+internal fun removeFromMainLooper(runnable: Runnable) {
+    mainHandler.removeCallbacks(runnable)
+}

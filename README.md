@@ -1,24 +1,26 @@
 # FramePulse
 
-A Kotlin Android library that measures frame times and jank: the frames a window draws on Android 7+, and main-thread frame pacing with `Choreographer` below that. It comes with rolling-window FPS, percentiles, frozen frames, per-frame jank details, tags, session summaries, tests, benchmarks and a demo app.
+A Kotlin Android library that measures frame times and jank, with rolling-window FPS, percentiles, frozen frames, per-frame jank details, tags, session summaries, tests, benchmarks and a demo app.
 
-**You can add it to your app to see when and where it janks: on which screen, during which action, and in which stage of the frame.**
+**You can add this library to your app to see when and where it janks: on which screen, during which action, and in which stage of the frame.**
 
-> **Status: alpha, educational.** The API may change between versions. It is not a replacement for Perfetto, Macrobenchmark or JankStats, and it has not been validated for production use.
+Most Android performance libraries hand you an FPS number and hide how it was produced. I built FramePulse the other way: every piece (frame source, rolling-window math, jank rule, session lifecycle) is written from scratch, tested, and explained.
 
-Most Android performance libraries hand you an FPS number and hide how it was produced. FramePulse goes the other way: every piece (frame source, rolling-window math, jank rule, session lifecycle) is written from scratch, tested, and explained.
+> Status: alpha. The API may change between versions. It is not a replacement for Perfetto, Macrobenchmark or JankStats.
 
-Learn about the design in detail from the documents below:
+Learn about the library design in detail from the documents mentioned below:
 
 - [Overall library architecture](docs/ARCHITECTURE.md)
 - [FrameMonitor lifecycle](docs/FRAME_MONITOR.md)
 - [Looper, Handler and MessageQueue](docs/AndroidInternals-Looper.md)
 
-## Modules of the project
+## Architecture Layers of the library
 
-- **framepulse**: the library. The root package `com.mayank.framepulse` is the public API; `internal` is the implementation.
-- **app**: the demo app, a test bench that causes jank on purpose.
-- **benchmark**: microbenchmarks of FramePulse's own work per frame.
+- FramePulse (public API)
+- Session
+- FrameMonitor
+- Calculator
+- FrameSource
 
 ```
 App
@@ -36,35 +38,21 @@ FrameSource, one of:
  └─ ChoreographerFrameSource ──► Choreographer.postFrameCallback (re-posted every frame)
 ```
 
-## Main features
+## Major Features of the library
 
 - **Drawn frames**: frame times from the platform's frame metrics (API 24+), with a `Choreographer` fallback.
 - **Metrics**: rolling-window FPS, average, max and p50 / p90 / p95 / p99 frame times.
-- **Frozen frames**: counts of frames over 700 ms.
 - **Jank**: judged against the system's frame deadline (API 31+) or a frame budget that follows the display's refresh rate.
-- **Jank frames**: an optional callback for each jank frame, with a stage breakdown (input, animation, layout, draw, sync, GPU) for drawn frames.
-- **Tags**: say what the app was doing (for example the screen, or "scrolling") during each jank frame.
-- **Session summary**: totals, jank rate, frozen frames, whole-session percentiles and a per-tag breakdown.
+- **Frozen frames**: frames over 700 ms.
+- **Jank frames**: a callback for each jank frame, with a stage breakdown (input, animation, layout, draw, sync, GPU).
+- **Tags**: say what the app was doing (the screen, "scrolling") during each jank frame.
+- **Session summary**: totals, jank rate, whole-session percentiles and a per-tag breakdown.
 - **Every activity**: `FramePulse.monitorActivities` measures each activity from `onStart` to `onStop` with one call.
-- **Lifecycle**: explicit start and stop, no restart; `stop()` works from any thread.
-- **Stable API**: one public package, usable from Kotlin and Java; result types can gain fields without breaking compiled apps.
-- **Tests**: JVM unit tests, and instrumentation tests on emulators (API 21, 24, 34) in CI, also passing on a Pixel 6 Pro (Android 14).
 - **Low overhead**: about 65 ns and no allocations per frame on a Pixel 6 Pro.
-- **CI**: GitHub Actions builds, tests and checks the public API against `framepulse/api/framepulse.api`.
+- **Stable API**: one public package, usable from Kotlin and Java, checked against `framepulse/api/framepulse.api` in CI.
+- Check what changed in each version in [CHANGELOG.md](CHANGELOG.md).
 
-## What FramePulse measures and what it doesn't
-
-FramePulse measures in one of two ways, depending on how you start it.
-
-| You call | Android version | What is measured |
-|----------|-----------------|------------------|
-| `FramePulse.start(activity, …)` | 7.0+ (API 24+) | Frames the activity's window drew |
-| `FramePulse.start(activity, …)` | 5.0–6.0 (API 21–23) | `Choreographer` callbacks |
-| `FramePulse.start(config, …)` or `FramePulse.start(context, display, …)` | any | `Choreographer` callbacks |
-
-### Drawn frames (API 24+)
-
-FramePulse registers a `Window.OnFrameMetricsAvailableListener` on the activity's window. The platform then reports every frame the window draws, with the time it took.
+### Drawn frames flow (API 24+)
 
 ```
 Window draws a frame ──► platform FrameMetrics (TOTAL_DURATION, DEADLINE)
@@ -72,26 +60,9 @@ Window draws a frame ──► platform FrameMetrics (TOTAL_DURATION, DEADLINE)
                               rolling window ──► FPS, jank, max frame time
 ```
 
-**It measures**
+> `FramePulse.start(activity, …)` on Android 7.0+. Frame time is the platform's `TOTAL_DURATION`, including work off the main thread. Only drawn frames count, so idle time is never jank. When the window stops drawing, the listener gets one more call with the last frames, then none until it draws again.
 
-- **Frame time**: the platform's `TOTAL_DURATION`, from the start of the frame until it is handed to the display system. This includes work off the main thread.
-- **FPS**: the number of frames drawn in the last `windowDurationMs` divided by the window length. An idle window draws nothing, so its FPS falls towards 0.
-- **Jank** on API 31+: a frame that took longer than the `DEADLINE` the system gave it. `jankThresholdMultiplier` is not used.
-- **Jank** on API 24–30: a frame that took longer than `expectedFramePeriodMs × jankThresholdMultiplier`, where the frame budget follows the display's refresh rate.
-
-**It does not**
-
-- **Report while the window is idle.** When the window stops drawing, the listener gets one more call with the frames drawn since its last call (about 100 ms later), then none until the window draws again. Idle time is never counted as jank.
-- Count the first frame of a new window layout. The platform expects that frame to be slow.
-- Work on a software-rendered window. The window must be hardware accelerated, which is the default.
-- See other windows, such as dialogs. Only the activity's own window is measured.
-- Say which code caused a slow frame. The stage breakdown on each jank frame tells you which stage was slow (for example layout or draw), not which code. Use Perfetto or Android Studio's profiler for that.
-
-On a Pixel 6 Pro (Android 14), scrolling the demo's janky list, FramePulse counted 401 frames and 58 jank frames (14.5%) while `scrolling` was set, with a p95 of 49 ms over the session. `adb shell dumpsys gfxinfo` reported 404 frames and 58 janky frames (14.4%) with a p95 of 48 ms for the same scroll.
-
-### Choreographer callbacks
-
-FramePulse posts a `Choreographer.FrameCallback` on the main thread and re-posts it every frame. Each callback delivers `frameTimeNanos`, the vsync time of the frame being processed.
+### Choreographer flow
 
 ```
 VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(frameTimeNanos)
@@ -101,39 +72,11 @@ VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(fram
                               rolling window ──► FPS, jank, max interval
 ```
 
-**It measures**
+> `FramePulse.start(config, …)`, `FramePulse.start(context, display, …)`, and `start(activity, …)` on Android 5.0–6.0. It measures how regularly the main thread serviced vsync, not what was rendered: callbacks keep arriving at the refresh rate even when nothing on screen changes.
 
-- How regularly the main thread serviced vsync. If the main thread is busy (layout, a slow `onClick`, I/O on main, GC pauses), the next callback arrives late and the interval grows.
-- **FPS**: the number of frame intervals in the last `windowDurationMs` divided by their total duration.
-- **Jank**: an interval strictly longer than `expectedFramePeriodMs × jankThresholdMultiplier` (default 1.5×, so 25 ms at 60 Hz and 12.5 ms at 120 Hz).
+### How to add FramePulse to your project?
 
-**It does not measure**
-
-- **Rendered frames.** Because the callback re-posts itself, Choreographer keeps requesting vsync, so callbacks arrive at the refresh rate **even when nothing on screen changes**. An idle app reports FPS close to the refresh rate. FramePulse cannot tell an idle frame from a drawn one.
-- RenderThread, GPU, or SurfaceFlinger composition time. A frame can be on time on the main thread and still be late on screen.
-- Which code caused a slow frame. Use Perfetto or Android Studio's profiler for that.
-
-### Known limitations
-
-- **A pause counts as one long frame.** If no callback arrives for a while (for example the screen turns off while the session is running), the gap is recorded as a single janky frame. Stop the session in `onStop`, or use `FramePulse.monitorActivities`, which does that for you.
-- **Refresh-rate changes need the `Activity` or `Display` overload.** `FramePulse.start(config, listener)` uses a fixed budget for the whole session. On variable-refresh-rate displays (for example Pixel "Smooth Display"), the system can drop from 120 Hz to 60 Hz when the screen is idle. With a fixed 120 Hz budget, every 60 Hz frame then counts as jank. On a Pixel 6 Pro this showed up as ~65 FPS and dozens of "janks" per second on an idle screen. `FramePulse.start(context, display, config, listener)` follows the rate reported by `Display.getRefreshRate()` through `DisplayManager.DisplayListener` instead. Changes the system does not report there (for example per-app frame-rate overrides) are not seen, and the interval that spans a switch is judged against the new budget. This has been checked with unit tests only, not yet on a device.
-- **Observer effect.** The listener runs on the main thread, and whatever it does (for example updating UI) is measured too. In the debug build of the demo app on a Pixel 6 Pro, the demo's own metric updates (4 per second) were slow enough to register as about 4 janks per second while idle; `adb shell dumpsys gfxinfo` reported the same frames as janky ("Slow UI thread").
-- **Power.** Keeping a frame callback posted keeps vsync running. Stop the session when you don't need it.
-
-## Requirements
-
-| Requirement          | Value  |
-|----------------------|--------|
-| Min SDK              | 21     |
-| Language             | Kotlin |
-| Bytecode target      | Java 11 |
-| JDK to build         | 17 or newer (AGP 9.5 / Gradle 9.9) |
-| Compose dependency   | No     |
-| Threading            | Main thread only |
-
-## How to add FramePulse to your project?
-
-FramePulse is on Maven Central. Make sure `mavenCentral()` is in your repositories (new Android projects have it), then add:
+FramePulse is on Maven Central. Make sure `mavenCentral()` is in your repositories, then add:
 
 ```kotlin
 // app/build.gradle.kts
@@ -142,17 +85,13 @@ dependencies {
 }
 ```
 
-See [CHANGELOG.md](CHANGELOG.md) for what each version contains.
+- Min SDK 21, no Compose dependency. Building this project needs JDK 17 or newer.
 
-## How to start a session?
+### How to start a session?
 
 Start a session when your UI becomes visible and stop it when it isn't:
 
 ```kotlin
-import com.mayank.framepulse.FramePulse
-import com.mayank.framepulse.FramePulseConfig
-import com.mayank.framepulse.FramePulseSession
-
 class MainActivity : ComponentActivity() {
 
     private var session: FramePulseSession? = null
@@ -174,22 +113,10 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-`FramePulseMetrics` fields:
+- `FramePulseMetrics` covers the last `windowDurationMs`: `fps`, `frameCount`, `averageFrameTimeMs`, `maxFrameTimeMs`, `p50FrameTimeMs` … `p99FrameTimeMs`, `jankCount`, `frozenFrameCount`, and since the start `totalFrameCount`, `totalJankCount`, `totalFrozenFrameCount`.
+- From Java, `start` is static: `FramePulse.start(this, metrics -> Log.d("FramePulse", "fps=" + metrics.getFps()));`
 
-| Field | Meaning |
-|-------|---------|
-| `fps` | Frames per second over the window (see the two modes above) |
-| `frameCount` | Frames in the window |
-| `averageFrameTimeMs` / `maxFrameTimeMs` | Mean / longest frame time in the window |
-| `p50FrameTimeMs` / `p90FrameTimeMs` / `p95FrameTimeMs` / `p99FrameTimeMs` | Frame time percentiles in the window (nearest rank) |
-| `jankCount` | Frames in the window that were jank |
-| `frozenFrameCount` | Frames in the window that took longer than 700 ms (`FramePulseMetrics.FROZEN_FRAME_THRESHOLD_MS`) |
-| `totalFrameCount` / `totalJankCount` / `totalFrozenFrameCount` | Since the session started |
-| `lastFrameTimeNanos` | Time of the newest frame, in nanoseconds |
-
-### How to change the defaults?
-
-Build a `FramePulseConfig`:
+#### How to change the defaults?
 
 ```kotlin
 val config = FramePulseConfig.Builder()
@@ -201,23 +128,13 @@ val config = FramePulseConfig.Builder()
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `windowDurationMs` | 1000 | Rolling window length |
-| `expectedFramePeriodMs` | 16.67 | Frame budget; or set it with `refreshRate(hz)`. Replaced by the display's rate when you pass an `Activity` or a `Display` |
-| `jankThresholdMultiplier` | 1.5 | Jank if frame time > budget × multiplier (must be ≥ 1.0). Not used for drawn frames on API 31+ |
+| `expectedFramePeriodMs` | 16.67 | Frame budget, or `refreshRate(hz)`. Follows the display when you pass an `Activity` or a `Display` |
+| `jankThresholdMultiplier` | 1.5 | Jank if frame time > budget × multiplier. Not used for drawn frames on API 31+ |
 | `reportIntervalMs` | 250 | Minimum time between listener calls; 0 = every frame |
 
-`config.newBuilder()` starts a builder from an existing config.
+### How to see each jank frame?
 
-### How to use it from Java?
-
-`start` is static and has overloads without the optional arguments:
-
-```java
-session = FramePulse.start(this, metrics -> Log.d("FramePulse", "fps=" + metrics.getFps()));
-```
-
-## How to see each jank frame?
-
-Pass a `jankFrameListener`. It works with every `start` overload and is called on the main thread, before the metrics listener for the same frame:
+Pass a `jankFrameListener`. It is called on the main thread, before the metrics listener for the same frame:
 
 ```kotlin
 session = FramePulse.start(
@@ -229,20 +146,12 @@ session = FramePulse.start(
 ) { metrics -> /* rolling-window metrics as before */ }
 ```
 
-| `JankFrame` field | Meaning |
-|-------------------|---------|
-| `durationMs` | How long the frame took |
-| `budgetMs` | The limit it went over: the system's deadline (API 31+), otherwise the jank threshold |
-| `isFrozen` | Whether it took longer than 700 ms |
-| `frameTimeNanos` | When it happened, in the same time base as `FramePulseMetrics.lastFrameTimeNanos` |
-| `stages` | Where the time went, for drawn frames (API 24+); `null` for `Choreographer` frames |
-| `tags` | Tags that were set while the frame ran (see below); empty when none |
+- A `JankFrame` has `durationMs`, `budgetMs`, `isFrozen`, `frameTimeNanos`, the `tags` set while it ran, and `stages` for drawn frames (`null` for `Choreographer` frames).
+- `FrameStages` holds the platform's stage durations: `unknownDelayMs`, `inputHandlingMs`, `animationMs`, `layoutMeasureMs`, `drawMs`, `syncMs`, `commandIssueMs`, `swapBuffersMs` and `gpuMs` (API 31+). They partly overlap, so they do not add up to `durationMs`.
 
-`FrameStages` holds the platform's stage durations in milliseconds: `unknownDelayMs` (the main thread was busy before the frame could start), `inputHandlingMs`, `animationMs`, `layoutMeasureMs`, `drawMs`, `syncMs`, `commandIssueMs`, `swapBuffersMs` and `gpuMs` (API 31+, otherwise `null`). The stages partly overlap, so they do not add up to `durationMs`. A `JankFrame` is only allocated for a jank frame; smooth frames allocate nothing.
+### How to tag what the app was doing?
 
-## How to tag what the app was doing?
-
-Tags say what the app was doing, so a jank frame tells you where it happened. Set them on the session from the main thread:
+Set tags on the session from the main thread. A tag belongs to every frame that ran while it was set:
 
 ```kotlin
 session?.setTag("screen", "Feed")
@@ -258,20 +167,17 @@ recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
 })
 ```
 
-A tag belongs to every frame that ran while it was set, even partly. Drawn frames are reported a little after they happen, so a tag removed right when scrolling stops still shows on the last frames of the scroll. Setting a new value for a name replaces the old one from then on.
+### How to get a session summary?
 
-## How to get a session summary?
-
-`session.summary()` returns the totals for the whole session so far. It works while the session runs and after `stop()`, so you can log a report when a screen goes away:
+`session.summary()` returns the totals for the whole session, while it runs and after `stop()`:
 
 ```kotlin
 override fun onStop() {
     session?.let { s ->
         s.stop()
         val summary = s.summary()
-        Log.i("FramePulse", "%d frames, %.1f%% jank, %d frozen, p95 %.1f ms".format(
-            summary.frameCount, summary.jankRate * 100, summary.frozenFrameCount,
-            summary.p95FrameTimeMs))
+        Log.i("FramePulse", "%d frames, %.1f%% jank, p95 %.1f ms".format(
+            summary.frameCount, summary.jankRate * 100, summary.p95FrameTimeMs))
         summary.tags.forEach { tag ->
             Log.i("FramePulse", "${tag.name}=${tag.value}: %.1f%% jank".format(tag.jankRate * 100))
         }
@@ -281,19 +187,12 @@ override fun onStop() {
 }
 ```
 
-| `SessionSummary` field | Meaning |
-|------------------------|---------|
-| `durationMs` | Time from start until now, or until `stop()` |
-| `frameCount` / `jankCount` / `frozenFrameCount` | Totals for the session |
-| `jankRate` | `jankCount / frameCount`, from 0.0 to 1.0 |
-| `p50FrameTimeMs` … `p99FrameTimeMs` / `maxFrameTimeMs` | Frame time percentiles and the exact maximum over the whole session |
-| `tags` | One `TagSummary` per tag value: `name`, `value`, `frameCount`, `jankCount`, `frozenFrameCount`, `jankRate` |
+- `SessionSummary` has `durationMs`, `frameCount`, `jankCount`, `frozenFrameCount`, `jankRate`, `p50FrameTimeMs` … `p99FrameTimeMs`, `maxFrameTimeMs` and one `TagSummary` per tag value.
+- Memory stays constant however long the session runs: the session percentiles come from a fixed histogram (0.1 ms steps up to 50 ms, 1 ms steps up to 1 s). Up to 256 tag values are counted per session.
 
-Memory stays constant however long the session runs: the session percentiles come from a fixed histogram instead of a list of frames. They are rounded up to a multiple of 0.1 ms up to 50 ms and of 1 ms up to 1 s, and frames over 1 s report the maximum. The rolling-window percentiles in `FramePulseMetrics` stay exact. A frame counts for every tag value that was set while it ran, so tag counts can add up to more than `frameCount`. Up to 256 distinct tag values are counted per session.
+### How to measure every activity?
 
-## How to measure every activity?
-
-Call `FramePulse.monitorActivities` once in your `Application`. Every activity is measured from its `onStart` to its `onStop`, and its session summary is passed to your listener when it stops:
+Call `FramePulse.monitorActivities` once in your `Application`. Each activity's summary is passed to your listener when it stops:
 
 ```kotlin
 class MyApp : Application() {
@@ -301,43 +200,46 @@ class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         FramePulse.monitorActivities(this) { activity, summary ->
-            Log.d("FramePulse", "%s: %d frames, %.1f%% jank, p95 %.1f ms".format(
-                activity.javaClass.simpleName,
-                summary.frameCount, summary.jankRate * 100, summary.p95FrameTimeMs))
+            Log.d("FramePulse", "%s: %d frames, %.1f%% jank".format(
+                activity.javaClass.simpleName, summary.frameCount, summary.jankRate * 100))
         }
     }
 }
 ```
 
-- Each session is tagged `activity` = the activity's class name (`FramePulse.ACTIVITY_TAG`), so jank frames from an optional shared `jankFrameListener` say which activity they came from.
-- `monitor.sessionFor(activity)` returns an activity's running session, for example to set more tags. `monitor.stop()` stops monitoring and reports the sessions still running.
-- A rotation stops the old activity and starts a new one, so it ends one session and starts another. An activity already started when you call `monitorActivities` is measured from its next `onStart`.
+- Each session is tagged `activity` = the activity's class name (`FramePulse.ACTIVITY_TAG`).
+- `monitor.sessionFor(activity)` returns an activity's running session, for example to set more tags.
 
-## Threading and lifecycle
+### Threading and lifecycle
 
-- **Main thread, except `stop()`.** Call `FramePulse.start()`, `setTag()`, `removeTag()` and `summary()` on the main thread; they throw `IllegalStateException` otherwise. `session.stop()` works on any thread: no listener call starts after it returns, and from another thread the unregistering is posted to the main thread.
-- **The listener runs on the main thread.** Keep it cheap. `FramePulseMetrics` is immutable, so you can hand it to another thread.
-- **You own a session from `start()`.** Stop it when you no longer need it, normally in `onStop`. A session started with an `Activity` also stops itself when the activity is destroyed, so a missing `stop()` cannot keep the window alive. Calling `stop()` more than once is fine, and you can call it from inside the listener. To have FramePulse start and stop sessions for you, use `FramePulse.monitorActivities` (see [How to measure every activity?](#how-to-measure-every-activity)).
-- **No restart.** A stopped session stays stopped; call `FramePulse.start()` again for a new one.
+- Call `start()`, `setTag()`, `removeTag()` and `summary()` on the main thread. `stop()` works on any thread.
+- The listeners run on the main thread, so keep them cheap. `FramePulseMetrics` is immutable.
+- Stop a session when you no longer need it, normally in `onStop`. A session started with an `Activity` also stops itself when the activity is destroyed. A stopped session cannot be restarted.
 
-## Overhead
+### Known limitations
 
-FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://developer.android.com/topic/performance/benchmarking/microbenchmark-overview) on a Pixel 6 Pro (Android 14, release build, CPU clocks not locked), with frames at 120 Hz and the default config:
+- **A pause counts as one long frame** with `Choreographer` callbacks (for example the screen turning off). Stop the session in `onStop`, or use `monitorActivities`.
+- **A fixed budget misjudges variable refresh rates.** `start(config, listener)` keeps one budget; use the `Activity` or `Display` overload, which follows `Display.getRefreshRate()`.
+- **Observer effect.** The listener runs on the main thread, so whatever it does (for example updating UI) is measured too.
+- **No code attribution.** The stage breakdown says which stage was slow, not which code. Use Perfetto or Android Studio's profiler for that.
+- Only the activity's own window is measured (not dialogs), and it must be hardware accelerated (the default).
+
+### Overhead
+
+FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://developer.android.com/topic/performance/benchmarking/microbenchmark-overview) on a Pixel 6 Pro (Android 14, release build), at 120 Hz with the default config:
 
 | Per frame | Median time | Allocations |
 |-----------|-------------|-------------|
-| Drawn frame through the session (window, summary, listener) | 65 ns | none¹ |
+| Drawn frame through the session | 65 ns | none¹ |
 | Same, with 3 tags set | 83 ns | none¹ |
 | `Choreographer` tick through the session | 66 ns | none¹ |
 | Jank frame with a `jankFrameListener` | 308 ns | 6 (the `JankFrame`, its stages and tags) |
 
-¹ Apart from one `FramePulseMetrics` snapshot per report interval (every 30 frames at 120 Hz with the default 250 ms), which the times include.
+¹ Apart from one `FramePulseMetrics` snapshot per report interval, which the times include.
 
-65 ns is under 0.001% of an 8.3 ms frame at 120 Hz. Not included: the platform's own cost of delivering frame metrics or `Choreographer` callbacks, and whatever your listeners do. See [How to run the benchmarks?](#how-to-run-the-benchmarks) to measure it yourself.
+### How to run the demo app?
 
-## How to run the demo app?
-
-`:app` is a test bench: screens that cause jank on purpose, so you can see what FramePulse reports for it.
+`:app` is a test bench with screens that jank on purpose: a dashboard with live metrics and buttons that block the main thread, and a janky list measured by `monitorActivities`.
 
 ```bash
 # Install the demo app on a connected device
@@ -347,14 +249,7 @@ FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://
 adb logcat -s FramePulse
 ```
 
-- **Dashboard** (`MainActivity`) runs its own session and shows live FPS, jank, frozen frames, p50 / p95 / max and the last jank frame with its slowest stage and tags. **Block 200 ms** and **Block 800 ms (frozen)** stall the main thread, tagged `action`. **Animate** draws a new frame every vsync; without it the FPS is low, because the window only draws when something changes.
-- **Janky list** (`JankyListActivity`) has 1,000 rows that each busy-wait 0, 2 or 8 ms on the main thread when they appear. It has no FramePulse code: `SampleApplication` measures every activity with `FramePulse.monitorActivities`, and the list only sets the tags `work` and `scrolling` on the session `sessionFor(activity)` returns.
-
-When an activity stops, its summary goes to logcat and to the dashboard's **Activity summaries**.
-
-The debug build is slower than a release build, and the dashboard's own updates show up as a few jank frames per second (see the observer effect under [Known limitations](#known-limitations)).
-
-### Example output
+### Example Output
 
 Scrolling the janky list at 8 ms per row on a Pixel 6 Pro, then going back:
 
@@ -367,82 +262,47 @@ work=8 ms per row: 708 frames, 40 jank (5.6%)
 scrolling=true: 613 frames, 38 jank (6.2%)
 ```
 
-## How to run the tests?
+On the same device, FramePulse counted 401 frames and 58 jank frames for a scroll where `adb shell dumpsys gfxinfo` reported 404 frames and 58 janky frames.
+
+### How to run the test?
 
 ```bash
 # Build everything, run the unit tests and check the public API
-./gradlew build test
+./gradlew build
 
-# Library only
-./gradlew :framepulse:assembleDebug :framepulse:testDebugUnitTest
-```
-
-Instrumentation tests (frame sources, activity monitoring and lifecycle stops) need a connected device or emulator, with the screen on and unlocked. CI runs them on emulators with API 21, 24 and 34.
-
-```bash
-# Run the instrumentation tests
+# Run the instrumentation tests (device or emulator, screen on and unlocked)
 ./gradlew :framepulse:connectedDebugAndroidTest
 ```
 
-Gradle 9.9 needs JDK 17 or newer to run.
-
-## How to run the benchmarks?
-
-The benchmarks of the per-frame work need a real device (API 23+); emulator results are not meaningful. Results are printed and saved as JSON under `benchmark/build/outputs/`.
+### How to run the benchmarks?
 
 ```bash
-# Run the benchmarks on a connected device
+# Run the benchmarks on a real device (API 23+); results go to benchmark/build/outputs/
 ./gradlew :benchmark:connectedReleaseAndroidTest
 ```
 
-## How to check the public API?
+### How to update the public API file?
 
-The library's public API is recorded in [`framepulse/api/framepulse.api`](framepulse/api/framepulse.api). `./gradlew build` (and CI) compares the compiled library with it and fails on any difference, so a change that would break apps compiled against an earlier version cannot slip in unnoticed.
-
-When you change the public API on purpose, update the file and commit it with the change:
+The build fails when the public API differs from [`framepulse/api/framepulse.api`](framepulse/api/framepulse.api). When you change the API on purpose:
 
 ```bash
 # Record the current public API
 ./gradlew :framepulse:apiDump
 ```
 
-Adding to the API is safe. Removing or changing anything already listed breaks binary compatibility and needs a new major version.
+### How to publish a release?
 
-## How to publish a release?
-
-`framepulse/build.gradle.kts` sets the coordinates (`io.github.imayankkumar:framepulse`), the version and the POM, using the [Gradle Maven Publish Plugin](https://vanniktech.github.io/gradle-maven-publish-plugin/central/). A release contains the AAR, a sources jar and a javadoc jar generated from the KDoc.
-
-To try the artifacts in another project first, publish them to your local Maven repository (`~/.m2`) and add `mavenLocal()` to that project's repositories:
+Set the version in `framepulse/build.gradle.kts` and give it a dated heading in [CHANGELOG.md](CHANGELOG.md). The Central Portal token and the signing key go in `~/.gradle/gradle.properties`, never in this repository.
 
 ```bash
-# Publish to the local Maven repository
+# Publish to the local Maven repository to try it first
 ./gradlew :framepulse:publishToMavenLocal
-```
 
-Releasing to Maven Central needs, once:
-
-- An account on the [Central Portal](https://central.sonatype.com) signed in with GitHub, which verifies the `io.github.imayankkumar` namespace.
-- A user token from the portal, and a GPG key whose public key is on a key server.
-- Both in `~/.gradle/gradle.properties` (never in this repository):
-
-```properties
-mavenCentralUsername=<token username>
-mavenCentralPassword=<token password>
-signing.keyId=<last 8 characters of the key ID>
-signing.password=<key password>
-signing.secretKeyRingFile=<path to the exported secret key ring>
-```
-
-Then set the version in `framepulse/build.gradle.kts`, give it a dated heading in [CHANGELOG.md](CHANGELOG.md), and:
-
-```bash
 # Upload the signed release; it waits in the Central Portal until you publish it there
 ./gradlew :framepulse:publishToMavenCentral
 ```
 
-Publications are signed only when a signing key is configured, and Maven Central rejects unsigned uploads.
-
-## The complete project folder structure
+### The Complete Project Folder Structure
 
 ```
 .
@@ -553,6 +413,7 @@ Publications are signed only when a signing key is configured, and Maven Central
 │   │                       │   │   ├── FakeRefreshRateSource.kt
 │   │                       │   │   └── MeasuredFrameTest.kt
 │   │                       │   ├── ActivitySessionTrackerTest.kt
+│   │                       │   ├── FramePulseSessionIdleReportTest.kt
 │   │                       │   ├── FramePulseSessionImplTest.kt
 │   │                       │   ├── FramePulseSessionJankFramesTest.kt
 │   │                       │   ├── FramePulseSessionMeasuredFramesTest.kt
@@ -581,22 +442,14 @@ Publications are signed only when a signing key is configured, and Maven Central
 └── settings.gradle.kts
 ```
 
-## Design principles
+### TODO
 
-- Public API should remain small and stable.
-- Android framework code stays inside `internal`.
-- Every component has a single responsibility.
-- Testability through abstractions (`FrameSource` lets tests run on the JVM without Choreographer).
-- Only claim in docs what the code does and tests verify.
-- Incremental development over premature complexity.
-
-## TODO
-
-- Compose integration
+- Compose integration.
+- Improvement based on feedback.
 
 ## If this project helps you in anyway, show your love ❤️ by putting a ⭐ on this project ✌️
 
-## License
+### License
 
 ```
    Copyright (C) 2026 Mayank Kumar
@@ -614,6 +467,6 @@ Publications are signed only when a signing key is configured, and Maven Central
    limitations under the License.
 ```
 
-## Contributing to FramePulse
+### Contributing to FramePulse
 
-All pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and write commits, [CHANGELOG.md](CHANGELOG.md) for what changed in each version, and [SECURITY.md](SECURITY.md) for how to report a security problem privately.
+All pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build and test, and [SECURITY.md](SECURITY.md) to report a security problem privately.

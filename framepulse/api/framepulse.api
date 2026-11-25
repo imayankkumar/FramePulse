@@ -35,7 +35,6 @@ public final class com/mayank/framepulse/FramePulseConfig {
 	public static final field DEFAULT_JANK_THRESHOLD_MULTIPLIER F
 	public static final field DEFAULT_REPORT_INTERVAL_MS J
 	public static final field DEFAULT_WINDOW_DURATION_MS J
-	public synthetic fun <init> (Lcom/mayank/framepulse/FramePulseConfig$Builder;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getExpectedFramePeriodMs ()F
 	public final fun getJankThresholdMs ()F

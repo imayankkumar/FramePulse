@@ -14,7 +14,9 @@ package com.mayank.framepulse
  * - When the window stops drawing, the frames drawn since the last snapshot are reported in one
  *   more snapshot, about 100 ms later and not before [FramePulseConfig.reportIntervalMs] has
  *   passed. Its window still ends at the newest frame. No further snapshot is delivered until
- *   the window draws again.
+ *   the window draws again, and the frames drawn right after this extra snapshot (for example
+ *   a screen showing it) wait for the next regular one, so showing the metrics does not keep
+ *   the window drawing.
  *
  * Any other session (`Choreographer` callbacks):
  * - A frame is one `Choreographer` frame callback on the main thread. Its frame time is the

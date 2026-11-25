@@ -115,14 +115,47 @@ class FramePulseSessionIdleReportTest {
         runPostedCheckAt(atMs = 300)
         assertEquals(2, received.size)
 
-        // 400 ms is under 250 ms after the idle report at 300 ms.
-        drawFrame(startMs = 400)
-
+        // 500 ms is under 250 ms after the idle report at 300 ms; 560 ms is not.
+        drawFrame(startMs = 500)
         assertEquals(2, received.size)
-        assertEquals(145L, postedDelayMs)
-        runPostedCheckAt(atMs = 550)
+        drawFrame(startMs = 560)
+
         assertEquals(3, received.size)
-        assertEquals(3L, received.last().totalFrameCount)
+        assertEquals(4L, received.last().totalFrameCount)
+    }
+
+    @Test
+    fun aListenerThatRedrawsTheWindowDoesNotKeepItDrawing() {
+        // Like a screen that shows the metrics: each report makes the window draw one frame.
+        newSession()
+        drawFrame(startMs = 0)
+        drawFrame(startMs = 8) // the redraw after the first report
+        runPostedCheckAt(atMs = 300)
+        assertEquals(2, received.size)
+
+        drawFrame(startMs = 301) // the redraw after the idle report
+
+        // Without a normal report in between, that redraw gets no idle report of its own.
+        assertNull(posted)
+        assertEquals(2, received.size)
+    }
+
+    @Test
+    fun anotherIdleReportFollowsTheNextNormalReport() {
+        newSession()
+        drawFrame(startMs = 0)
+        drawFrame(startMs = 16)
+        runPostedCheckAt(atMs = 300)
+        drawFrame(startMs = 400)
+        assertNull(posted)
+
+        drawFrame(startMs = 600)
+        drawFrame(startMs = 616)
+        assertEquals(3, received.size)
+
+        runPostedCheckAt(atMs = 900)
+        assertEquals(4, received.size)
+        assertEquals(5L, received.last().totalFrameCount)
     }
 
     @Test

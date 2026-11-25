@@ -43,7 +43,8 @@ import java.util.concurrent.atomic.AtomicLong
  * frame has been delivered for [IDLE_NANOS], those frames are reported in one snapshot, so the
  * listener's last snapshot does not leave out the frames drawn just before the window went
  * idle. The same clock ([nanoTime], `System.nanoTime()`) is used for frame times and for this
- * check.
+ * check. After an idle report, the next one waits until a frame has been reported in the normal
+ * way, so a listener that redraws the window cannot keep it drawing.
  *
  * @param jankFrameListener Optional; null skips building [JankFrame]s entirely.
  * @param monitorFactory Builds the monitor from the per-frame consumer. Injected so tests can
@@ -122,7 +123,10 @@ internal class FramePulseSessionImpl(
                 metrics = metrics,
             )
             lastMeasuredFrameNanos = nanoTime()
-            if (!stopRequested && calculator.hasUnreportedFrames && !idleReportPosted) {
+            if (metrics != null) idleReportAllowed = true
+            if (!stopRequested && idleReportAllowed && !idleReportPosted &&
+                calculator.hasUnreportedFrames
+            ) {
                 postIdleReport(idleReportWaitNanos(lastMeasuredFrameNanos))
             }
         }
@@ -135,6 +139,13 @@ internal class FramePulseSessionImpl(
      */
     private val idleReport = Runnable { onIdleReportDue() }
     private var idleReportPosted = false
+
+    /**
+     * False after an idle report until a frame is reported in the normal way. A listener that
+     * updates the screen makes the window draw again; without this, that frame would get its
+     * own idle report, which would draw again, and the window would never go idle.
+     */
+    private var idleReportAllowed = false
 
     /** When the newest measured frame was delivered, on the [nanoTime] clock. */
     private var lastMeasuredFrameNanos = NOT_SET
@@ -212,6 +223,7 @@ internal class FramePulseSessionImpl(
             return
         }
         val metrics = calculator.reportUnreportedFrames(now, activeConfig) ?: return
+        idleReportAllowed = false
         listener.onMetrics(metrics)
     }
 

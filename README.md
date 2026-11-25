@@ -39,13 +39,13 @@ FramePulse goes the other way. Its goals are to:
 - `FramePulse.monitorActivities`: one call measures every activity from `onStart` to `onStop` and reports its summary
 - One public package, usable from Kotlin and Java; result types can gain fields without breaking compiled apps
 - JVM unit tests for the metrics math and the session state machine
+- Instrumentation tests on emulators (API 21, 24, 34) in CI; also passing on a Pixel 6 Pro (Android 14)
 - GitHub Actions CI (`./gradlew build test`), including a check of the public API against `framepulse/api/framepulse.api`
 - Demo app with live metrics and a "cause jank" button
 
 ## 📋 Planned
 
 - Benchmark module (measure FramePulse's own overhead)
-- Instrumentation tests
 - Maven Central publishing
 - Compose integration
 
@@ -408,6 +408,14 @@ Library only:
 ```bash
 ./gradlew :framepulse:assembleDebug :framepulse:testDebugUnitTest
 ```
+
+Instrumentation tests (frame sources, activity monitoring and lifecycle stops) on a connected device or emulator, with the screen on and unlocked:
+
+```bash
+./gradlew :framepulse:connectedDebugAndroidTest
+```
+
+CI runs them on emulators with API 21, 24 and 34.
 
 Gradle 8.13 runs on JDK 17–23. If your IDE or `JAVA_HOME` points to a newer JDK (for example 25), point Gradle at a JDK 17 or 21 instead.
 

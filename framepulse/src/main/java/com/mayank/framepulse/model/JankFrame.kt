@@ -18,6 +18,8 @@ package com.mayank.framepulse.model
  *   [FrameMetrics.FROZEN_FRAME_THRESHOLD_MS].
  * @property stages Where the frame's time went. Null for `Choreographer` frames, which have no
  *   breakdown.
+ * @property tags Tags set with [com.mayank.framepulse.api.FramePulseSession.setTag] at any time
+ *   while the frame ran, by name. Empty when none were set.
  */
 public data class JankFrame(
     val frameTimeNanos: Long,
@@ -25,4 +27,5 @@ public data class JankFrame(
     val budgetMs: Double,
     val isFrozen: Boolean,
     val stages: FrameStages?,
+    val tags: Map<String, String>,
 )

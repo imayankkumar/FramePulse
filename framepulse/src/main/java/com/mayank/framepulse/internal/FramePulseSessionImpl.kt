@@ -32,6 +32,8 @@ import com.mayank.framepulse.model.JankFrame
  * @param monitorFactory Builds the monitor from the per-frame consumer. Injected so tests can
  *   use a fake frame source.
  * @param refreshRateSource Optional display refresh-rate tracking. Null keeps the budget fixed.
+ * @param isMainThread Injected so the tag methods can be unit tested on the JVM.
+ * @param nanoTime Clock for tag changes, in the same time base as frame times.
  */
 internal class FramePulseSessionImpl(
     config: FramePulseConfig,
@@ -40,12 +42,23 @@ internal class FramePulseSessionImpl(
     monitorFactory: (frameConsumer: FrameConsumer) -> FrameMonitor,
     private val refreshRateSource: RefreshRateSource? = null,
     private val jankFrameListener: JankFrameListener? = null,
+    private val isMainThread: () -> Boolean = ::isMainLooperThread,
+    private val nanoTime: () -> Long = System::nanoTime,
 ) : FramePulseSession {
+
+    private val tags = TagTracker()
 
     private val frameConsumer = object : FrameConsumer {
         override fun onFrameTick(frameTimeNanos: Long) {
             val metrics = calculator.onFrame(frameTimeNanos, activeConfig)
-            report(frameTimeNanos, stages = null, metrics)
+            report(
+                frameTimeNanos = frameTimeNanos,
+                // The interval that ended with this tick. Only used when the tick was recorded.
+                startNanos = frameTimeNanos - calculator.lastFrameDurationNanos,
+                endNanos = frameTimeNanos,
+                stages = null,
+                metrics = metrics,
+            )
         }
 
         override fun onFrameMeasured(
@@ -60,7 +73,13 @@ internal class FramePulseSessionImpl(
                 deadlineNanos,
                 activeConfig,
             )
-            report(frameTimeNanos, stages, metrics)
+            report(
+                frameTimeNanos = frameTimeNanos,
+                startNanos = frameTimeNanos,
+                endNanos = frameTimeNanos + durationNanos,
+                stages = stages,
+                metrics = metrics,
+            )
         }
     }
 
@@ -98,18 +117,59 @@ internal class FramePulseSessionImpl(
     override val isRunning: Boolean
         get() = monitor.isRunning
 
-    /** Calls the listeners for the frame the calculator has just recorded. */
-    private fun report(frameTimeNanos: Long, stages: FrameStageNanos?, metrics: FrameMetrics?) {
+    override fun setTag(name: String, value: String) {
+        assertMainThread("setTag")
+        tags.set(name, value, nanoTime())
+    }
+
+    override fun removeTag(name: String) {
+        assertMainThread("removeTag")
+        tags.remove(name, nanoTime())
+    }
+
+    /**
+     * Calls the listeners for the frame the calculator has just recorded.
+     *
+     * @param startNanos When the frame started, used to match tags.
+     * @param endNanos When the frame ended, used to match tags.
+     */
+    private fun report(
+        frameTimeNanos: Long,
+        startNanos: Long,
+        endNanos: Long,
+        stages: FrameStageNanos?,
+        metrics: FrameMetrics?,
+    ) {
         val jankListener = jankFrameListener
-        if (jankListener != null && calculator.lastFrameWasJank) {
-            jankListener.onJankFrame(jankFrame(frameTimeNanos, stages))
+        val jankFrame = if (jankListener != null && calculator.lastFrameWasJank) {
+            jankFrame(frameTimeNanos, stages, tags.tagsDuring(startNanos, endNanos))
+        } else {
+            null
+        }
+        // Later frames start later, so tags removed before this one can be dropped.
+        tags.forgetRemovedBefore(startNanos)
+
+        if (jankListener != null && jankFrame != null) {
+            jankListener.onJankFrame(jankFrame)
             // The jank listener may have stopped the session.
             if (!monitor.isRunning) return
         }
         if (metrics != null) listener.onMetrics(metrics)
     }
 
-    private fun jankFrame(frameTimeNanos: Long, stages: FrameStageNanos?): JankFrame {
+    private fun assertMainThread(method: String) {
+        if (!isMainThread()) {
+            throw IllegalStateException(
+                "FramePulseSession.$method() must be called from the main thread",
+            )
+        }
+    }
+
+    private fun jankFrame(
+        frameTimeNanos: Long,
+        stages: FrameStageNanos?,
+        frameTags: Map<String, String>,
+    ): JankFrame {
         val durationNanos = calculator.lastFrameDurationNanos
         return JankFrame(
             frameTimeNanos = frameTimeNanos,
@@ -117,6 +177,7 @@ internal class FramePulseSessionImpl(
             budgetMs = calculator.lastFrameBudgetNanos / NANOS_PER_MILLI,
             isFrozen = durationNanos > FrameMetrics.FROZEN_FRAME_THRESHOLD_MS * NANOS_PER_MILLI,
             stages = stages?.toFrameStages(),
+            tags = frameTags,
         )
     }
 

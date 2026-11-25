@@ -16,6 +16,12 @@ android {
         consumerProguardFiles("consumer-rules.pro")
     }
 
+    testOptions {
+        // Without this the test APK targets minSdk (21). Android 14 then shows a permission
+        // review screen over the test activity, and the instrumentation tests time out.
+        targetSdk = 36
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

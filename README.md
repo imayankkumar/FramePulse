@@ -34,6 +34,7 @@ FramePulse goes the other way. Its goals are to:
 - Listener API delivering immutable `FrameMetrics` snapshots
 - Optional per-frame jank callback with a stage breakdown (input, animation, layout, draw, sync, GPU) for drawn frames
 - Tags (for example the screen, or "scrolling") that say what the app was doing during each jank frame
+- Session summary: totals, jank rate, frozen frames, whole-session percentiles and a per-tag breakdown
 - Explicit session lifecycle (start / stop, no restart)
 - JVM unit tests for the metrics math and the session state machine
 - GitHub Actions CI (`./gradlew build test`)
@@ -241,6 +242,37 @@ recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
 ```
 
 A tag belongs to every frame that ran while it was set, even partly. Drawn frames are reported a little after they happen, so a tag removed right when scrolling stops still shows on the last frames of the scroll. Setting a new value for a name replaces the old one from then on.
+
+## Session summary
+
+`session.summary()` returns the totals for the whole session so far. It works while the session runs and after `stop()`, so you can log a report when a screen goes away:
+
+```kotlin
+override fun onStop() {
+    session?.let { s ->
+        s.stop()
+        val summary = s.summary()
+        Log.i("FramePulse", "%d frames, %.1f%% jank, %d frozen, p95 %.1f ms".format(
+            summary.frameCount, summary.jankRate * 100, summary.frozenFrameCount,
+            summary.p95FrameTimeMs))
+        summary.tags.forEach { tag ->
+            Log.i("FramePulse", "${tag.name}=${tag.value}: %.1f%% jank".format(tag.jankRate * 100))
+        }
+    }
+    session = null
+    super.onStop()
+}
+```
+
+| `SessionSummary` field | Meaning |
+|------------------------|---------|
+| `durationMs` | Time from start until now, or until `stop()` |
+| `frameCount` / `jankCount` / `frozenFrameCount` | Totals for the session |
+| `jankRate` | `jankCount / frameCount`, from 0.0 to 1.0 |
+| `p50FrameTimeMs` … `p99FrameTimeMs` / `maxFrameTimeMs` | Frame time percentiles and the exact maximum over the whole session |
+| `tags` | One `TagSummary` per tag value: `name`, `value`, `frameCount`, `jankCount`, `frozenFrameCount`, `jankRate` |
+
+Memory stays constant however long the session runs: the session percentiles come from a fixed histogram instead of a list of frames. They are rounded up to a multiple of 0.1 ms up to 50 ms and of 1 ms up to 1 s, and frames over 1 s report the maximum. The rolling-window percentiles in `FrameMetrics` stay exact. A frame counts for every tag value that was set while it ran, so tag counts can add up to more than `frameCount`. Up to 256 distinct tag values are counted per session.
 
 ---
 

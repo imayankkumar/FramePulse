@@ -1,10 +1,10 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
 import com.mayank.framepulse.internal.source.FakeFrameSource
 import com.mayank.framepulse.internal.source.FakeRefreshRateSource
-import com.mayank.framepulse.model.FrameMetrics
+import com.mayank.framepulse.FramePulseMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -16,13 +16,13 @@ import org.junit.Test
 class FramePulseSessionRefreshRateTest {
 
     private val frames = FakeFrameSource()
-    private val received = mutableListOf<FrameMetrics>()
+    private val received = mutableListOf<FramePulseMetrics>()
     private var onMainThread = true
     private var now = 0L
 
     private fun newSession(
         refreshRateSource: FakeRefreshRateSource?,
-        config: FramePulseConfig = FramePulseConfig(reportIntervalMs = 0),
+        config: FramePulseConfig = FramePulseConfig.Builder().reportIntervalMs(0).build(),
     ) = FramePulseSessionImpl(
         config = config,
         listener = { received += it },
@@ -47,7 +47,7 @@ class FramePulseSessionRefreshRateTest {
         // Without tracking, a 120 Hz budget (12.5 ms threshold) flags every 60 Hz frame.
         val session = newSession(
             refreshRateSource = null,
-            config = FramePulseConfig(reportIntervalMs = 0).withRefreshRate(120f),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).refreshRate(120f).build(),
         )
         session.start()
         frames.emit(now)

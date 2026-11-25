@@ -1,7 +1,7 @@
 package com.mayank.framepulse.internal.metrics
 
-import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.model.FrameMetrics
+import com.mayank.framepulse.FramePulseConfig
+import com.mayank.framepulse.FramePulseMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -12,14 +12,14 @@ class RollingWindowMeasuredFramesTest {
     private val calculator = RollingWindowFpsCalculator()
 
     /** Report on every frame so each call can be inspected. 60 Hz budget, 25 ms threshold. */
-    private val everyFrame = FramePulseConfig(reportIntervalMs = 0)
+    private val everyFrame = FramePulseConfig.Builder().reportIntervalMs(0).build()
 
     private fun frame(
         timeNanos: Long,
         durationMs: Long,
         deadlineMs: Long = NO_DEADLINE,
         config: FramePulseConfig = everyFrame,
-    ): FrameMetrics? = calculator.onMeasuredFrame(
+    ): FramePulseMetrics? = calculator.onMeasuredFrame(
         frameTimeNanos = timeNanos,
         durationNanos = durationMs * NANOS_PER_MS,
         deadlineNanos = if (deadlineMs == NO_DEADLINE) NO_DEADLINE else deadlineMs * NANOS_PER_MS,
@@ -42,7 +42,7 @@ class RollingWindowMeasuredFramesTest {
 
     @Test
     fun steadySixtyFramesPerSecondReportsSixtyFpsFromTheFirstFrameOn() {
-        var metrics: FrameMetrics? = null
+        var metrics: FramePulseMetrics? = null
         for (i in 0 until 180) {
             metrics = frame(timeNanos = START + i * PERIOD_60HZ, durationMs = 5)!!
             assertEquals("frame $i", 60.0, metrics.fps, 0.02)
@@ -57,7 +57,7 @@ class RollingWindowMeasuredFramesTest {
     @Test
     fun aFrameExactlyOneWindowOldIsNotCounted() {
         // 100 Hz for two seconds: 10 ms divides the 1 s window exactly.
-        var metrics: FrameMetrics? = null
+        var metrics: FramePulseMetrics? = null
         for (i in 0..200) {
             metrics = frame(timeNanos = START + i * 10 * NANOS_PER_MS, durationMs = 4)
         }
@@ -71,7 +71,7 @@ class RollingWindowMeasuredFramesTest {
         // Half a second of drawing, 2 s of nothing, then ten frames.
         for (i in 0 until 30) frame(timeNanos = START + i * PERIOD_60HZ, durationMs = 5)
         val resume = START + 2_500 * NANOS_PER_MS
-        var metrics: FrameMetrics? = null
+        var metrics: FramePulseMetrics? = null
         for (i in 0 until 10) {
             metrics = frame(timeNanos = resume + i * PERIOD_60HZ, durationMs = 5)
         }
@@ -88,7 +88,10 @@ class RollingWindowMeasuredFramesTest {
     @Test
     fun withoutADeadlineTheConfiguredThresholdDecidesJank() {
         // 20 ms * 1.5 = 30 ms, exactly representable.
-        val config = FramePulseConfig(expectedFramePeriodMs = 20f, reportIntervalMs = 0)
+        val config = FramePulseConfig.Builder()
+            .expectedFramePeriodMs(20f)
+            .reportIntervalMs(0)
+            .build()
 
         val atThreshold = frame(timeNanos = START, durationMs = 30, config = config)!!
         val overThreshold = calculator.onMeasuredFrame(
@@ -120,7 +123,7 @@ class RollingWindowMeasuredFramesTest {
     @Test
     fun jankLeavesTheWindowButStaysInTheTotal() {
         frame(timeNanos = START, durationMs = 100)
-        var metrics: FrameMetrics? = null
+        var metrics: FramePulseMetrics? = null
         for (i in 1..90) {
             metrics = frame(timeNanos = START + i * PERIOD_60HZ, durationMs = 5)
         }
@@ -152,7 +155,7 @@ class RollingWindowMeasuredFramesTest {
 
     @Test
     fun reportsAreThrottledToReportInterval() {
-        val config = FramePulseConfig(reportIntervalMs = 50)
+        val config = FramePulseConfig.Builder().reportIntervalMs(50).build()
         val reportTimes = mutableListOf<Long>()
 
         // 100 Hz for one second: frames at 0, 10, 20 ... 1000 ms.
@@ -170,9 +173,12 @@ class RollingWindowMeasuredFramesTest {
     @Test
     fun windowLargerThanInitialBufferStillRollsOverCorrectly() {
         // 5 s at 240 Hz needs about 1200 slots, well past the initial capacity.
-        val config = FramePulseConfig(windowDurationMs = 5_000, reportIntervalMs = 0)
-            .withRefreshRate(240f)
-        var metrics: FrameMetrics? = null
+        val config = FramePulseConfig.Builder()
+            .windowDurationMs(5_000)
+            .reportIntervalMs(0)
+            .refreshRate(240f)
+            .build()
+        var metrics: FramePulseMetrics? = null
         for (i in 0 until 2_400) {
             metrics = frame(timeNanos = START + i * PERIOD_240HZ, durationMs = 2, config = config)
         }

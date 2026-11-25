@@ -1,4 +1,4 @@
-package com.mayank.framepulse.model
+package com.mayank.framepulse
 
 /**
  * Immutable snapshot of frame pacing metrics for the rolling window that ends at
@@ -22,7 +22,7 @@ package com.mayank.framepulse.model
  *   idle app reports an FPS close to the refresh rate.
  *
  * All window fields cover the last
- * [com.mayank.framepulse.api.FramePulseConfig.windowDurationMs] milliseconds.
+ * [FramePulseConfig.windowDurationMs] milliseconds.
  *
  * @property lastFrameTimeNanos Time of the newest frame in the window, in nanoseconds: the start
  *   of the frame for drawn frames, the callback's `frameTimeNanos` otherwise.
@@ -45,22 +45,66 @@ package com.mayank.framepulse.model
  * @property totalJankCount Jank frames observed since the session started.
  * @property totalFrozenFrameCount Frozen frames observed since the session started.
  */
-public data class FrameMetrics(
-    val lastFrameTimeNanos: Long,
-    val fps: Double,
-    val frameCount: Int,
-    val averageFrameTimeMs: Double,
-    val maxFrameTimeMs: Double,
-    val p50FrameTimeMs: Double,
-    val p90FrameTimeMs: Double,
-    val p95FrameTimeMs: Double,
-    val p99FrameTimeMs: Double,
-    val jankCount: Int,
-    val frozenFrameCount: Int,
-    val totalFrameCount: Long,
-    val totalJankCount: Long,
-    val totalFrozenFrameCount: Long,
+public class FramePulseMetrics internal constructor(
+    public val lastFrameTimeNanos: Long,
+    public val fps: Double,
+    public val frameCount: Int,
+    public val averageFrameTimeMs: Double,
+    public val maxFrameTimeMs: Double,
+    public val p50FrameTimeMs: Double,
+    public val p90FrameTimeMs: Double,
+    public val p95FrameTimeMs: Double,
+    public val p99FrameTimeMs: Double,
+    public val jankCount: Int,
+    public val frozenFrameCount: Int,
+    public val totalFrameCount: Long,
+    public val totalJankCount: Long,
+    public val totalFrozenFrameCount: Long,
 ) {
+    override fun equals(other: Any?): Boolean =
+        this === other || other is FramePulseMetrics &&
+            lastFrameTimeNanos == other.lastFrameTimeNanos &&
+            fps == other.fps &&
+            frameCount == other.frameCount &&
+            averageFrameTimeMs == other.averageFrameTimeMs &&
+            maxFrameTimeMs == other.maxFrameTimeMs &&
+            p50FrameTimeMs == other.p50FrameTimeMs &&
+            p90FrameTimeMs == other.p90FrameTimeMs &&
+            p95FrameTimeMs == other.p95FrameTimeMs &&
+            p99FrameTimeMs == other.p99FrameTimeMs &&
+            jankCount == other.jankCount &&
+            frozenFrameCount == other.frozenFrameCount &&
+            totalFrameCount == other.totalFrameCount &&
+            totalJankCount == other.totalJankCount &&
+            totalFrozenFrameCount == other.totalFrozenFrameCount
+
+    override fun hashCode(): Int {
+        var result = lastFrameTimeNanos.hashCode()
+        result = 31 * result + fps.hashCode()
+        result = 31 * result + frameCount
+        result = 31 * result + averageFrameTimeMs.hashCode()
+        result = 31 * result + maxFrameTimeMs.hashCode()
+        result = 31 * result + p50FrameTimeMs.hashCode()
+        result = 31 * result + p90FrameTimeMs.hashCode()
+        result = 31 * result + p95FrameTimeMs.hashCode()
+        result = 31 * result + p99FrameTimeMs.hashCode()
+        result = 31 * result + jankCount
+        result = 31 * result + frozenFrameCount
+        result = 31 * result + totalFrameCount.hashCode()
+        result = 31 * result + totalJankCount.hashCode()
+        result = 31 * result + totalFrozenFrameCount.hashCode()
+        return result
+    }
+
+    override fun toString(): String =
+        "FramePulseMetrics(lastFrameTimeNanos=$lastFrameTimeNanos, fps=$fps, " +
+            "frameCount=$frameCount, averageFrameTimeMs=$averageFrameTimeMs, " +
+            "maxFrameTimeMs=$maxFrameTimeMs, p50FrameTimeMs=$p50FrameTimeMs, " +
+            "p90FrameTimeMs=$p90FrameTimeMs, p95FrameTimeMs=$p95FrameTimeMs, " +
+            "p99FrameTimeMs=$p99FrameTimeMs, jankCount=$jankCount, " +
+            "frozenFrameCount=$frozenFrameCount, totalFrameCount=$totalFrameCount, " +
+            "totalJankCount=$totalJankCount, totalFrozenFrameCount=$totalFrozenFrameCount)"
+
     public companion object {
         /**
          * A frame that takes longer than this many milliseconds is frozen. This matches the

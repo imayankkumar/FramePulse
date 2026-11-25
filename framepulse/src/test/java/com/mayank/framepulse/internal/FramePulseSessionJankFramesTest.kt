@@ -1,30 +1,30 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
 import com.mayank.framepulse.internal.source.FakeFrameSource
 import com.mayank.framepulse.internal.source.FrameStageNanos
-import com.mayank.framepulse.model.FrameMetrics
-import com.mayank.framepulse.model.FrameStages
-import com.mayank.framepulse.model.JankFrame
+import com.mayank.framepulse.FramePulseMetrics
+import com.mayank.framepulse.FrameStages
+import com.mayank.framepulse.JankFrame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** A session with a [com.mayank.framepulse.api.JankFrameListener]. */
+/** A session with a [com.mayank.framepulse.JankFrameListener]. */
 class FramePulseSessionJankFramesTest {
 
     private val frames = FakeFrameSource()
     private val events = mutableListOf<Any>()
     private val jankFrames get() = events.filterIsInstance<JankFrame>()
-    private val metrics get() = events.filterIsInstance<FrameMetrics>()
+    private val metrics get() = events.filterIsInstance<FramePulseMetrics>()
 
     /** 60 Hz budget, so the threshold is 16.67 ms * 1.5, about 25 ms. Reports every frame. */
     private fun newSession(onJank: (JankFrame) -> Unit = {}): FramePulseSessionImpl =
         FramePulseSessionImpl(
-            config = FramePulseConfig(reportIntervalMs = 0),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
             listener = { events += it },
             calculator = RollingWindowFpsCalculator(),
             monitorFactory = { consumer ->
@@ -68,8 +68,8 @@ class FramePulseSessionJankFramesTest {
         frames.emitMeasured(START, 40 * NANOS_PER_MS)
 
         assertTrue(events[0] is JankFrame)
-        assertTrue(events[1] is FrameMetrics)
-        assertEquals(1L, (events[1] as FrameMetrics).totalJankCount)
+        assertTrue(events[1] is FramePulseMetrics)
+        assertEquals(1L, (events[1] as FramePulseMetrics).totalJankCount)
     }
 
     @Test
@@ -174,9 +174,9 @@ class FramePulseSessionJankFramesTest {
 
     @Test
     fun withoutAJankListenerMetricsStillArrive() {
-        val received = mutableListOf<FrameMetrics>()
+        val received = mutableListOf<FramePulseMetrics>()
         FramePulseSessionImpl(
-            config = FramePulseConfig(reportIntervalMs = 0),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
             listener = { received += it },
             calculator = RollingWindowFpsCalculator(),
             monitorFactory = { consumer ->

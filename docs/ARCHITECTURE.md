@@ -5,13 +5,14 @@
 > **Scope:** Architecture and engineering design only — no implementation code.
 
 > **Shipped v0.1 differs from this design.** For the current API see the
-> [README](../README.md) and the KDoc in `com.mayank.framepulse.api`. Main differences:
+> [README](../README.md) and the KDoc in `com.mayank.framepulse`. Main differences:
 >
 > - `FramePulse.start(config, listener)` takes the listener. `FramePulseConfig` has no
 >   `looper`; monitoring is main-thread only. It has `reportIntervalMs` (default 250 ms).
-> - The listener is `FramePulseListener.onMetrics(FrameMetrics)` (`model` package), not
->   `onSnapshot(FramePulseSnapshot)`.
-> - Public packages are `api` and `model`. `FrameMonitor` and `FPSCalculator` are internal
+> - The listener is `FramePulseListener.onMetrics(FramePulseMetrics)`, not
+>   `onSnapshot(FramePulseSnapshot)`. `FramePulseConfig` is built with `FramePulseConfig.Builder`.
+> - All public types are in the root package `com.mayank.framepulse`; the result types are plain
+>   classes, not data classes. `FrameMonitor` and `FPSCalculator` are internal
 >   (`internal` and `internal.metrics`), not the public `core` and `metrics` contracts below, and
 >   there is no separate `FrameClock`, `JankDetector` or aggregator: the rolling
 >   window and jank count live in `internal.metrics.RollingWindowFpsCalculator`.

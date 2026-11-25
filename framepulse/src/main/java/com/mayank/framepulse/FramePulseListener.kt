@@ -1,12 +1,11 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
-import com.mayank.framepulse.model.FrameMetrics
 
 /**
  * Callback invoked when aggregated frame metrics are available.
  *
  * Responsibilities:
- * - Consume immutable [FrameMetrics] snapshots produced by the metrics layer.
+ * - Consume immutable [FramePulseMetrics] snapshots produced by the metrics layer.
  * - Stay lightweight; heavy work in listeners can itself cause UI-thread pressure.
  *
  * Must not:
@@ -25,5 +24,5 @@ public fun interface FramePulseListener {
      *
      * @param metrics Immutable snapshot; safe to keep or pass to other threads.
      */
-    public fun onMetrics(metrics: FrameMetrics)
+    public fun onMetrics(metrics: FramePulseMetrics)
 }

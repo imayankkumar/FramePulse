@@ -1,9 +1,9 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
 import com.mayank.framepulse.internal.source.FakeFrameSource
-import com.mayank.framepulse.model.TagSummary
+import com.mayank.framepulse.TagSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -18,7 +18,7 @@ class FramePulseSessionSummaryTest {
 
     /** 60 Hz budget, so frames over about 25 ms are jank. Reports throttled as by default. */
     private val session = FramePulseSessionImpl(
-        config = FramePulseConfig(),
+        config = FramePulseConfig.DEFAULT,
         listener = {},
         calculator = RollingWindowFpsCalculator(),
         monitorFactory = { consumer ->

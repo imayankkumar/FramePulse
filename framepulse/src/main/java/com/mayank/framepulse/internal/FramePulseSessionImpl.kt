@@ -1,9 +1,9 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.api.FramePulseListener
-import com.mayank.framepulse.api.FramePulseSession
-import com.mayank.framepulse.api.JankFrameListener
+import com.mayank.framepulse.FramePulseConfig
+import com.mayank.framepulse.FramePulseListener
+import com.mayank.framepulse.FramePulseSession
+import com.mayank.framepulse.JankFrameListener
 import com.mayank.framepulse.internal.metrics.FPSCalculator
 import com.mayank.framepulse.internal.metrics.NANOS_PER_MILLI
 import com.mayank.framepulse.internal.metrics.SessionFrameStats
@@ -12,10 +12,10 @@ import com.mayank.framepulse.internal.metrics.nanosToMillis
 import com.mayank.framepulse.internal.source.FrameConsumer
 import com.mayank.framepulse.internal.source.FrameStageNanos
 import com.mayank.framepulse.internal.source.RefreshRateSource
-import com.mayank.framepulse.model.FrameMetrics
-import com.mayank.framepulse.model.FrameStages
-import com.mayank.framepulse.model.JankFrame
-import com.mayank.framepulse.model.SessionSummary
+import com.mayank.framepulse.FramePulseMetrics
+import com.mayank.framepulse.FrameStages
+import com.mayank.framepulse.JankFrame
+import com.mayank.framepulse.SessionSummary
 
 /**
  * Internal [FramePulseSession]: wires a [FrameMonitor] to an [FPSCalculator] and the listeners.
@@ -173,7 +173,7 @@ internal class FramePulseSessionImpl(
         startNanos: Long,
         endNanos: Long,
         stages: FrameStageNanos?,
-        metrics: FrameMetrics?,
+        metrics: FramePulseMetrics?,
     ) {
         if (calculator.lastFrameWasRecorded) {
             val durationNanos = calculator.lastFrameDurationNanos
@@ -231,7 +231,7 @@ internal class FramePulseSessionImpl(
     private fun applyRefreshRate(refreshRateHz: Float) {
         // Display.getRefreshRate() should always be positive; ignore anything else.
         if (!(refreshRateHz > 0f) || refreshRateHz.isInfinite()) return
-        activeConfig = activeConfig.withRefreshRate(refreshRateHz)
+        activeConfig = activeConfig.newBuilder().refreshRate(refreshRateHz).build()
     }
 
     private companion object {

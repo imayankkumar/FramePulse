@@ -21,13 +21,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.mayank.framepulse.api.FramePulse
-import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.api.FramePulseSession
-import com.mayank.framepulse.model.FrameMetrics
-import com.mayank.framepulse.model.FrameStages
-import com.mayank.framepulse.model.JankFrame
-import com.mayank.framepulse.model.SessionSummary
+import com.mayank.framepulse.FramePulse
+import com.mayank.framepulse.FramePulseConfig
+import com.mayank.framepulse.FramePulseSession
+import com.mayank.framepulse.FramePulseMetrics
+import com.mayank.framepulse.FrameStages
+import com.mayank.framepulse.JankFrame
+import com.mayank.framepulse.SessionSummary
 import com.mayank.framepulse.sample.ui.theme.FramePulseTheme
 import java.util.Locale
 
@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
 
     private var session: FramePulseSession? = null
     private val config = FramePulseConfig.DEFAULT
-    private var metrics by mutableStateOf<FrameMetrics?>(null)
+    private var metrics by mutableStateOf<FramePulseMetrics?>(null)
     private var lastJankFrame by mutableStateOf<JankFrame?>(null)
     private var summary by mutableStateOf<SessionSummary?>(null)
 
@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MetricsScreen(
     config: FramePulseConfig,
-    metrics: FrameMetrics?,
+    metrics: FramePulseMetrics?,
     lastJankFrame: JankFrame?,
     summary: SessionSummary?,
     onBlockMainThread: (Long) -> Unit,

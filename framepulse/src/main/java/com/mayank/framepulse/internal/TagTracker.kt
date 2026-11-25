@@ -1,6 +1,6 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.model.TagSummary
+import com.mayank.framepulse.TagSummary
 
 /**
  * Remembers when each tag was set and removed, so a frame can be given the tags that applied

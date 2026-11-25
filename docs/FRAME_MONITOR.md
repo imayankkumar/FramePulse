@@ -46,7 +46,7 @@ Design document for `FrameMonitor`. Aligns with the approved FramePulse architec
 | Concern | Delegated to |
 |---------|----------------|
 | FPS / frame-time math | `FPSCalculator` |
-| Immutable public snapshots | `FrameMetrics` + session/listener dispatch |
+| Immutable public snapshots | `FramePulseMetrics` + session/listener dispatch |
 | Platform registration details | `FrameSource` (internal) |
 | Listener callbacks | `FramePulseSession` / facade |
 | Jank classification | Future `JankDetector` (metrics/internal) |
@@ -223,7 +223,7 @@ classDiagram
 | **`FrameMonitorImpl`** | `internal` | Concrete lifecycle + wiring (future) |
 | **`FrameSource`** | `internal` | Start/stop platform callback registration |
 | **`FrameTickCallback`** (or lambda type) | `internal` | `(frameTimeNanos: Long) -> Unit` invoked on looper thread |
-| **`FPSCalculator`** | `internal.metrics` | Pure timestamp → `FrameMetrics?` (internal) |
+| **`FPSCalculator`** | `internal.metrics` | Pure timestamp → `FramePulseMetrics?` (internal) |
 | **`FramePulseSession`** | `api` | Owns monitor + listener throttle + snapshot dispatch |
 
 ### Dependency direction (strict)
@@ -401,7 +401,7 @@ Golden sequences for calculator (separate tests): steady 16.67ms, single spike �
 | **`FrameMetrics` / platform aggregator** | New `FrameSource` impl | Monitor unchanged; select source via config/factory |
 | **Pause / resume** | New states or `pause()` | `Started` → `Paused` (callbacks off, state retained) |
 | **Multi-looper** | One monitor per looper | Factory `create(looper)` instead of singleton monitor |
-| **Jank detection** | `FPSCalculator` + `FrameMetrics` | Monitor still only forwards timestamps |
+| **Jank detection** | `FPSCalculator` + `FramePulseMetrics` | Monitor still only forwards timestamps |
 | **Listener throttle** | Session layer | Monitor unaffected |
 | **Debug tracing** | `FrameSource` or monitor impl | `Trace.beginSection` only in debug builds |
 
@@ -453,7 +453,7 @@ sequenceDiagram
     loop Each frame while started
         FS->>FM: onFrame(nanos)
         FM->>CALC: onFrame(nanos, config)
-        CALC-->>SES: FrameMetrics? (via session policy)
+        CALC-->>SES: FramePulseMetrics? (via session policy)
         SES-->>App: listener.onMetrics()
         FS->>FS: re-post callback
     end

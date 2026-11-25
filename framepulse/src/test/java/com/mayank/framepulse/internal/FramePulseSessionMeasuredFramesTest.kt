@@ -1,10 +1,10 @@
 package com.mayank.framepulse.internal
 
-import com.mayank.framepulse.api.FramePulseConfig
+import com.mayank.framepulse.FramePulseConfig
 import com.mayank.framepulse.internal.metrics.RollingWindowFpsCalculator
 import com.mayank.framepulse.internal.source.FakeFrameSource
 import com.mayank.framepulse.internal.source.FakeRefreshRateSource
-import com.mayank.framepulse.model.FrameMetrics
+import com.mayank.framepulse.FramePulseMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -13,11 +13,11 @@ import org.junit.Test
 class FramePulseSessionMeasuredFramesTest {
 
     private val frames = FakeFrameSource()
-    private val received = mutableListOf<FrameMetrics>()
+    private val received = mutableListOf<FramePulseMetrics>()
 
     private fun newSession(refreshRateSource: FakeRefreshRateSource? = null) =
         FramePulseSessionImpl(
-            config = FramePulseConfig(reportIntervalMs = 0),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
             listener = { received += it },
             calculator = RollingWindowFpsCalculator(),
             monitorFactory = { consumer ->

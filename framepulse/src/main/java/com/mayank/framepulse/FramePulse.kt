@@ -1,4 +1,4 @@
-package com.mayank.framepulse.api
+package com.mayank.framepulse
 
 import android.app.Activity
 import android.content.Context
@@ -26,6 +26,9 @@ import com.mayank.framepulse.internal.source.RefreshRateSource
  * Every overload takes an optional [JankFrameListener] that is called once for each jank frame,
  * in addition to the [FramePulseListener] that receives the rolling-window metrics.
  *
+ * From Java the `start` methods are static, with overloads that leave out the optional
+ * arguments: `FramePulse.start(activity, metrics -> { ... })`.
+ *
  * Threading contract: FramePulse is main-thread-confined and is not thread-safe. Call [start]
  * and [FramePulseSession.stop] on the main thread. The listeners are invoked on the main thread,
  * so keep them cheap.
@@ -51,8 +54,8 @@ public object FramePulse {
      *   refresh rate as in the overload that takes a [Display].
      * - The window must be hardware accelerated (the default). A software-rendered window
      *   reports no frames.
-     * - Each [com.mayank.framepulse.model.JankFrame] carries its stage breakdown
-     *   ([com.mayank.framepulse.model.FrameStages]).
+     * - Each [JankFrame] carries its stage breakdown
+     *   ([FrameStages]).
      *
      * On API 21 to 23 this falls back to `Choreographer` callbacks with a budget that follows
      * the display's refresh rate, exactly like the overload that takes a [Display].
@@ -73,6 +76,8 @@ public object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
+    @JvmStatic
+    @JvmOverloads
     public fun start(
         activity: Activity,
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
@@ -111,6 +116,8 @@ public object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
+    @JvmStatic
+    @JvmOverloads
     public fun start(
         config: FramePulseConfig = FramePulseConfig.DEFAULT,
         jankFrameListener: JankFrameListener? = null,
@@ -147,6 +154,8 @@ public object FramePulse {
      * @return A handle used to stop monitoring.
      * @throws IllegalStateException if called off the main thread.
      */
+    @JvmStatic
+    @JvmOverloads
     public fun start(
         context: Context,
         display: Display,

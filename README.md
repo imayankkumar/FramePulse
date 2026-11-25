@@ -31,11 +31,12 @@ FramePulse goes the other way. Its goals are to:
 - Frozen frame counts (frames over 700 ms)
 - Jank detection against the system's frame deadline (API 31+) or a configurable frame budget
 - Optional frame budget that follows display refresh-rate changes during a session
-- Listener API delivering immutable `FrameMetrics` snapshots
+- Listener API delivering immutable `FramePulseMetrics` snapshots
 - Optional per-frame jank callback with a stage breakdown (input, animation, layout, draw, sync, GPU) for drawn frames
 - Tags (for example the screen, or "scrolling") that say what the app was doing during each jank frame
 - Session summary: totals, jank rate, frozen frames, whole-session percentiles and a per-tag breakdown
 - Explicit session lifecycle (start / stop, no restart)
+- One public package, usable from Kotlin and Java; result types can gain fields without breaking compiled apps
 - JVM unit tests for the metrics math and the session state machine
 - GitHub Actions CI (`./gradlew build test`)
 - Demo app with live metrics and a "cause jank" button
@@ -151,9 +152,9 @@ dependencies {
 Start a session when your UI becomes visible and stop it when it isn't:
 
 ```kotlin
-import com.mayank.framepulse.api.FramePulse
-import com.mayank.framepulse.api.FramePulseConfig
-import com.mayank.framepulse.api.FramePulseSession
+import com.mayank.framepulse.FramePulse
+import com.mayank.framepulse.FramePulseConfig
+import com.mayank.framepulse.FramePulseSession
 
 class MainActivity : ComponentActivity() {
 
@@ -176,7 +177,7 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-`FrameMetrics` fields:
+`FramePulseMetrics` fields:
 
 | Field | Meaning |
 |-------|---------|
@@ -185,18 +186,33 @@ class MainActivity : ComponentActivity() {
 | `averageFrameTimeMs` / `maxFrameTimeMs` | Mean / longest frame time in the window |
 | `p50FrameTimeMs` / `p90FrameTimeMs` / `p95FrameTimeMs` / `p99FrameTimeMs` | Frame time percentiles in the window (nearest rank) |
 | `jankCount` | Frames in the window that were jank |
-| `frozenFrameCount` | Frames in the window that took longer than 700 ms (`FrameMetrics.FROZEN_FRAME_THRESHOLD_MS`) |
+| `frozenFrameCount` | Frames in the window that took longer than 700 ms (`FramePulseMetrics.FROZEN_FRAME_THRESHOLD_MS`) |
 | `totalFrameCount` / `totalJankCount` / `totalFrozenFrameCount` | Since the session started |
 | `lastFrameTimeNanos` | Time of the newest frame, in nanoseconds |
 
-`FramePulseConfig` options:
+Build a `FramePulseConfig` to change the defaults:
+
+```kotlin
+val config = FramePulseConfig.Builder()
+    .windowDurationMs(2_000)
+    .reportIntervalMs(500)
+    .build()
+```
 
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `windowDurationMs` | 1000 | Rolling window length |
-| `expectedFramePeriodMs` | 16.67 | Frame budget; set it with `withRefreshRate(hz)`. Replaced by the display's rate when you pass an `Activity` or a `Display` |
+| `expectedFramePeriodMs` | 16.67 | Frame budget; or set it with `refreshRate(hz)`. Replaced by the display's rate when you pass an `Activity` or a `Display` |
 | `jankThresholdMultiplier` | 1.5 | Jank if frame time > budget × multiplier (must be ≥ 1.0). Not used for drawn frames on API 31+ |
 | `reportIntervalMs` | 250 | Minimum time between listener calls; 0 = every frame |
+
+`config.newBuilder()` starts a builder from an existing config.
+
+From Java, `start` is static and has overloads without the optional arguments:
+
+```java
+session = FramePulse.start(this, metrics -> Log.d("FramePulse", "fps=" + metrics.getFps()));
+```
 
 ## Jank frames
 
@@ -217,7 +233,7 @@ session = FramePulse.start(
 | `durationMs` | How long the frame took |
 | `budgetMs` | The limit it went over: the system's deadline (API 31+), otherwise the jank threshold |
 | `isFrozen` | Whether it took longer than 700 ms |
-| `frameTimeNanos` | When it happened, in the same time base as `FrameMetrics.lastFrameTimeNanos` |
+| `frameTimeNanos` | When it happened, in the same time base as `FramePulseMetrics.lastFrameTimeNanos` |
 | `stages` | Where the time went, for drawn frames (API 24+); `null` for `Choreographer` frames |
 | `tags` | Tags that were set while the frame ran (see below); empty when none |
 
@@ -272,14 +288,14 @@ override fun onStop() {
 | `p50FrameTimeMs` … `p99FrameTimeMs` / `maxFrameTimeMs` | Frame time percentiles and the exact maximum over the whole session |
 | `tags` | One `TagSummary` per tag value: `name`, `value`, `frameCount`, `jankCount`, `frozenFrameCount`, `jankRate` |
 
-Memory stays constant however long the session runs: the session percentiles come from a fixed histogram instead of a list of frames. They are rounded up to a multiple of 0.1 ms up to 50 ms and of 1 ms up to 1 s, and frames over 1 s report the maximum. The rolling-window percentiles in `FrameMetrics` stay exact. A frame counts for every tag value that was set while it ran, so tag counts can add up to more than `frameCount`. Up to 256 distinct tag values are counted per session.
+Memory stays constant however long the session runs: the session percentiles come from a fixed histogram instead of a list of frames. They are rounded up to a multiple of 0.1 ms up to 50 ms and of 1 ms up to 1 s, and frames over 1 s report the maximum. The rolling-window percentiles in `FramePulseMetrics` stay exact. A frame counts for every tag value that was set while it ran, so tag counts can add up to more than `frameCount`. Up to 256 distinct tag values are counted per session.
 
 ---
 
 # Threading and lifecycle
 
 - **Main-thread-confined.** Call `FramePulse.start()` and `session.stop()` on the main thread; both throw `IllegalStateException` otherwise. A rejected `stop()` leaves the session running, so you can still stop it from the main thread. FramePulse is not thread-safe and uses no locks.
-- **The listener runs on the main thread.** Keep it cheap. `FrameMetrics` is immutable, so you can hand it to another thread.
+- **The listener runs on the main thread.** Keep it cheap. `FramePulseMetrics` is immutable, so you can hand it to another thread.
 - **You own the lifecycle.** FramePulse does not observe Activity or process lifecycle. Every `start()` needs a matching `stop()`. A session started with an `Activity` holds its window until you stop it. Calling `stop()` more than once is fine, and you can call it from inside the listener.
 - **No restart.** A stopped session stays stopped; call `FramePulse.start()` again for a new one.
 
@@ -301,7 +317,7 @@ Memory stays constant however long the session runs: the session percentiles com
 App
  │  FramePulse.start(activity, config, listener)
  ▼
-FramePulseSessionImpl ──────────────► FramePulseListener.onMetrics(FrameMetrics)
+FramePulseSessionImpl ──────────────► FramePulseListener.onMetrics(FramePulseMetrics)
  │                                          ▲
  ▼                                          │
 FrameMonitorImpl (IDLE → STARTED → STOPPED) │
@@ -323,10 +339,10 @@ FramePulse
 ├── app/                 Demo application (Compose)
 │
 ├── framepulse/
-│   ├── api/             Public API: FramePulse, config, listener, session
-│   ├── internal/        Implementation (not public): FrameMonitor, FPSCalculator, session,
-│   │                    frame and refresh-rate sources
-│   └── model/           Immutable FrameMetrics
+│   ├── (root package)   Public API: FramePulse, config, listeners, session and the
+│   │                    immutable results (FramePulseMetrics, JankFrame, SessionSummary)
+│   └── internal/        Implementation (not public): FrameMonitor, FPSCalculator, session,
+│                        frame and refresh-rate sources
 │
 ├── docs/
 │

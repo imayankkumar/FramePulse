@@ -127,7 +127,7 @@ VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(fram
 | Min SDK              | 21     |
 | Language             | Kotlin |
 | Bytecode target      | Java 11 |
-| JDK to build         | 17–23 (AGP 8.13 / Gradle 8.13) |
+| JDK to build         | 17 or newer (AGP 9.5 / Gradle 9.9) |
 | Compose dependency   | No     |
 | Threading            | Main thread only |
 
@@ -384,7 +384,7 @@ Instrumentation tests (frame sources, activity monitoring and lifecycle stops) n
 ./gradlew :framepulse:connectedDebugAndroidTest
 ```
 
-Gradle 8.13 runs on JDK 17–23. If your IDE or `JAVA_HOME` points to a newer JDK (for example 25), point Gradle at a JDK 17 or 21 instead.
+Gradle 9.9 needs JDK 17 or newer to run.
 
 ## How to run the benchmarks?
 

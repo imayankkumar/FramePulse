@@ -10,7 +10,7 @@ All pull requests are welcome: bug fixes, tests, docs and new features.
 
 ## How to build and test
 
-You need JDK 17–23 (Gradle 8.13 does not run on newer JDKs).
+You need JDK 17 or newer.
 
 ```bash
 # Build everything, run the unit tests and check the public API

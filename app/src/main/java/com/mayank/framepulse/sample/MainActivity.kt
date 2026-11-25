@@ -163,7 +163,8 @@ private fun Dashboard(
         Text("FramePulse test bench", style = MaterialTheme.typography.headlineSmall)
         Text(
             buildString {
-                append(if (MEASURES_DRAWN_FRAMES) "Drawn frames" else "Choreographer callbacks")
+                // The demo needs API 24, where FramePulse.start(activity, ...) measures drawn frames.
+                append("Drawn frames")
                 if (refreshRateHz > 0f) append(", display at %.0f Hz".format(Locale.US, refreshRateHz))
             },
             style = MaterialTheme.typography.bodyMedium,
@@ -275,5 +276,3 @@ private fun Spinner() {
 private const val JANK_BLOCK_MS = 200L
 private const val FROZEN_BLOCK_MS = 800L
 
-/** FramePulse.start(activity, ...) reads the platform's frame metrics from API 24 on. */
-private val MEASURES_DRAWN_FRAMES = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N

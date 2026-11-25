@@ -11,7 +11,7 @@ class RollingWindowPercentilesAndFrozenFramesTest {
     private val calculator = RollingWindowFpsCalculator()
 
     /** Report on every frame so each call can be inspected. 60 Hz budget, 25 ms threshold. */
-    private val everyFrame = FramePulseConfig(reportIntervalMs = 0)
+    private val everyFrame = FramePulseConfig.Builder().reportIntervalMs(0).build()
 
     private fun measured(timeNanos: Long, durationNanos: Long): FramePulseMetrics? =
         calculator.onMeasuredFrame(
@@ -21,7 +21,8 @@ class RollingWindowPercentilesAndFrozenFramesTest {
             config = everyFrame,
         )
 
-    private fun tick(timeNanos: Long): FramePulseMetrics? = calculator.onFrame(timeNanos, everyFrame)
+    private fun tick(timeNanos: Long): FramePulseMetrics? =
+        calculator.onFrame(timeNanos, everyFrame)
 
     @Test
     fun percentilesUseTheNearestRank() {

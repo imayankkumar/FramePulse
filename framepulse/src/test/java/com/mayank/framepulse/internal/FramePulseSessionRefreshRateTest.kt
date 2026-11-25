@@ -22,7 +22,7 @@ class FramePulseSessionRefreshRateTest {
 
     private fun newSession(
         refreshRateSource: FakeRefreshRateSource?,
-        config: FramePulseConfig = FramePulseConfig(reportIntervalMs = 0),
+        config: FramePulseConfig = FramePulseConfig.Builder().reportIntervalMs(0).build(),
     ) = FramePulseSessionImpl(
         config = config,
         listener = { received += it },
@@ -47,7 +47,7 @@ class FramePulseSessionRefreshRateTest {
         // Without tracking, a 120 Hz budget (12.5 ms threshold) flags every 60 Hz frame.
         val session = newSession(
             refreshRateSource = null,
-            config = FramePulseConfig(reportIntervalMs = 0).withRefreshRate(120f),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).refreshRate(120f).build(),
         )
         session.start()
         frames.emit(now)

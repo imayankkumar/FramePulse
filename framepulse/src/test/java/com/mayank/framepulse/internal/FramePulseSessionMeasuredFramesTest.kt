@@ -17,7 +17,7 @@ class FramePulseSessionMeasuredFramesTest {
 
     private fun newSession(refreshRateSource: FakeRefreshRateSource? = null) =
         FramePulseSessionImpl(
-            config = FramePulseConfig(reportIntervalMs = 0),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
             listener = { received += it },
             calculator = RollingWindowFpsCalculator(),
             monitorFactory = { consumer ->

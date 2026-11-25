@@ -22,7 +22,7 @@ class FramePulseSessionImplTest {
     private fun newSession(
         listener: FramePulseListener = FramePulseListener { received += it },
     ) = FramePulseSessionImpl(
-        config = FramePulseConfig(reportIntervalMs = 0),
+        config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
         listener = listener,
         calculator = RollingWindowFpsCalculator(),
         monitorFactory = { consumer ->

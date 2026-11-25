@@ -12,7 +12,7 @@ class RollingWindowMeasuredFramesTest {
     private val calculator = RollingWindowFpsCalculator()
 
     /** Report on every frame so each call can be inspected. 60 Hz budget, 25 ms threshold. */
-    private val everyFrame = FramePulseConfig(reportIntervalMs = 0)
+    private val everyFrame = FramePulseConfig.Builder().reportIntervalMs(0).build()
 
     private fun frame(
         timeNanos: Long,
@@ -88,7 +88,10 @@ class RollingWindowMeasuredFramesTest {
     @Test
     fun withoutADeadlineTheConfiguredThresholdDecidesJank() {
         // 20 ms * 1.5 = 30 ms, exactly representable.
-        val config = FramePulseConfig(expectedFramePeriodMs = 20f, reportIntervalMs = 0)
+        val config = FramePulseConfig.Builder()
+            .expectedFramePeriodMs(20f)
+            .reportIntervalMs(0)
+            .build()
 
         val atThreshold = frame(timeNanos = START, durationMs = 30, config = config)!!
         val overThreshold = calculator.onMeasuredFrame(
@@ -152,7 +155,7 @@ class RollingWindowMeasuredFramesTest {
 
     @Test
     fun reportsAreThrottledToReportInterval() {
-        val config = FramePulseConfig(reportIntervalMs = 50)
+        val config = FramePulseConfig.Builder().reportIntervalMs(50).build()
         val reportTimes = mutableListOf<Long>()
 
         // 100 Hz for one second: frames at 0, 10, 20 ... 1000 ms.
@@ -170,8 +173,11 @@ class RollingWindowMeasuredFramesTest {
     @Test
     fun windowLargerThanInitialBufferStillRollsOverCorrectly() {
         // 5 s at 240 Hz needs about 1200 slots, well past the initial capacity.
-        val config = FramePulseConfig(windowDurationMs = 5_000, reportIntervalMs = 0)
-            .withRefreshRate(240f)
+        val config = FramePulseConfig.Builder()
+            .windowDurationMs(5_000)
+            .reportIntervalMs(0)
+            .refreshRate(240f)
+            .build()
         var metrics: FramePulseMetrics? = null
         for (i in 0 until 2_400) {
             metrics = frame(timeNanos = START + i * PERIOD_240HZ, durationMs = 2, config = config)

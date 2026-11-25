@@ -24,7 +24,7 @@ class FramePulseSessionJankFramesTest {
     /** 60 Hz budget, so the threshold is 16.67 ms * 1.5, about 25 ms. Reports every frame. */
     private fun newSession(onJank: (JankFrame) -> Unit = {}): FramePulseSessionImpl =
         FramePulseSessionImpl(
-            config = FramePulseConfig(reportIntervalMs = 0),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
             listener = { events += it },
             calculator = RollingWindowFpsCalculator(),
             monitorFactory = { consumer ->
@@ -176,7 +176,7 @@ class FramePulseSessionJankFramesTest {
     fun withoutAJankListenerMetricsStillArrive() {
         val received = mutableListOf<FramePulseMetrics>()
         FramePulseSessionImpl(
-            config = FramePulseConfig(reportIntervalMs = 0),
+            config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
             listener = { received += it },
             calculator = RollingWindowFpsCalculator(),
             monitorFactory = { consumer ->

@@ -231,7 +231,7 @@ internal class FramePulseSessionImpl(
     private fun applyRefreshRate(refreshRateHz: Float) {
         // Display.getRefreshRate() should always be positive; ignore anything else.
         if (!(refreshRateHz > 0f) || refreshRateHz.isInfinite()) return
-        activeConfig = activeConfig.withRefreshRate(refreshRateHz)
+        activeConfig = activeConfig.newBuilder().refreshRate(refreshRateHz).build()
     }
 
     private companion object {

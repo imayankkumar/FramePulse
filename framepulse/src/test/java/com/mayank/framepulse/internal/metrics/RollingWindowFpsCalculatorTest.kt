@@ -13,7 +13,7 @@ class RollingWindowFpsCalculatorTest {
     private val calculator = RollingWindowFpsCalculator()
 
     /** Report on every frame so each call can be inspected. */
-    private val everyFrame = FramePulseConfig(reportIntervalMs = 0)
+    private val everyFrame = FramePulseConfig.Builder().reportIntervalMs(0).build()
 
     @Test
     fun firstFrameProducesNoMetrics() {
@@ -34,7 +34,7 @@ class RollingWindowFpsCalculatorTest {
 
     @Test
     fun steady120HzWithMatchingRefreshRateReportsNoJank() {
-        val config = everyFrame.withRefreshRate(120f)
+        val config = everyFrame.newBuilder().refreshRate(120f).build()
 
         val metrics = feedSteady(periodNanos = PERIOD_120HZ, frames = 240, config = config)
 
@@ -60,7 +60,10 @@ class RollingWindowFpsCalculatorTest {
     @Test
     fun intervalExactlyAtThresholdIsNotJankButOneNanosecondMoreIs() {
         // 20 ms * 1.5 = 30 ms, exactly representable.
-        val config = FramePulseConfig(expectedFramePeriodMs = 20f, reportIntervalMs = 0)
+        val config = FramePulseConfig.Builder()
+            .expectedFramePeriodMs(20f)
+            .reportIntervalMs(0)
+            .build()
 
         calculator.onFrame(0L, config)
         val atThreshold = calculator.onFrame(30 * NANOS_PER_MS, config)!!
@@ -72,8 +75,11 @@ class RollingWindowFpsCalculatorTest {
 
     @Test
     fun jankThresholdMultiplierIsConfigurable() {
-        val strict = FramePulseConfig(expectedFramePeriodMs = 20f, reportIntervalMs = 0)
-        val lenient = strict.copy(jankThresholdMultiplier = 2.5f)
+        val strict = FramePulseConfig.Builder()
+            .expectedFramePeriodMs(20f)
+            .reportIntervalMs(0)
+            .build()
+        val lenient = strict.newBuilder().jankThresholdMultiplier(2.5f).build()
         val strictCalculator = RollingWindowFpsCalculator()
         val lenientCalculator = RollingWindowFpsCalculator()
 
@@ -137,7 +143,7 @@ class RollingWindowFpsCalculatorTest {
 
     @Test
     fun reportsAreThrottledToReportInterval() {
-        val config = FramePulseConfig(reportIntervalMs = 50)
+        val config = FramePulseConfig.Builder().reportIntervalMs(50).build()
         val reportTimes = mutableListOf<Long>()
 
         // 100 Hz for one second: frames at 0, 10, 20 ... 1000 ms.
@@ -154,8 +160,11 @@ class RollingWindowFpsCalculatorTest {
     @Test
     fun windowLargerThanInitialBufferStillRollsOverCorrectly() {
         // 5 s at 240 Hz needs about 1200 slots, well past the initial capacity.
-        val config = FramePulseConfig(windowDurationMs = 5_000, reportIntervalMs = 0)
-            .withRefreshRate(240f)
+        val config = FramePulseConfig.Builder()
+            .windowDurationMs(5_000)
+            .reportIntervalMs(0)
+            .refreshRate(240f)
+            .build()
 
         val metrics = feedSteady(periodNanos = PERIOD_240HZ, frames = 2_400, config = config)
 
@@ -165,7 +174,11 @@ class RollingWindowFpsCalculatorTest {
         assertEquals(2_399L, metrics.totalFrameCount)
     }
 
-    private fun feedSteady(periodNanos: Long, frames: Int, config: FramePulseConfig): FramePulseMetrics {
+    private fun feedSteady(
+        periodNanos: Long,
+        frames: Int,
+        config: FramePulseConfig,
+    ): FramePulseMetrics {
         var last: FramePulseMetrics? = null
         for (i in 0 until frames) {
             calculator.onFrame(i * periodNanos, config)?.let { last = it }

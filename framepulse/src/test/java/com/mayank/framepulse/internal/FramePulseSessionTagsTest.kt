@@ -19,7 +19,7 @@ class FramePulseSessionTagsTest {
 
     /** 60 Hz budget, so frames over about 25 ms are jank. */
     private val session = FramePulseSessionImpl(
-        config = FramePulseConfig(reportIntervalMs = 0),
+        config = FramePulseConfig.Builder().reportIntervalMs(0).build(),
         listener = {},
         calculator = RollingWindowFpsCalculator(),
         monitorFactory = { consumer ->

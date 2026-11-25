@@ -18,7 +18,7 @@ class FramePulseSessionSummaryTest {
 
     /** 60 Hz budget, so frames over about 25 ms are jank. Reports throttled as by default. */
     private val session = FramePulseSessionImpl(
-        config = FramePulseConfig(),
+        config = FramePulseConfig.DEFAULT,
         listener = {},
         calculator = RollingWindowFpsCalculator(),
         monitorFactory = { consumer ->

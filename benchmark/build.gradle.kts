@@ -33,10 +33,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
 
-    // The per-frame code is internal to the library, so it is compiled into this module instead
-    // of being made public for the benchmarks. The library's API is checked by :framepulse.
-    sourceSets["main"].kotlin.directories.add("../framepulse/src/main/java")
+// The per-frame code is internal to the library, so it is compiled into this module instead of
+// being made public for the benchmarks. The library's API is checked by :framepulse. The Variant
+// API is used because the android.sourceSets accessor fails in this module on AGP 9.3.
+androidComponents {
+    onVariants { variant ->
+        variant.sources.kotlin?.addStaticSourceDirectory("../framepulse/src/main/java")
+    }
 }
 
 dependencies {

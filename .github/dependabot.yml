@@ -12,6 +12,15 @@ updates:
       kotlin:
         patterns:
           - "org.jetbrains.kotlin*"
+    ignore:
+      # The latest stable Android Studio supports AGP 9.3 at most. Remove this once it supports
+      # a newer one.
+      - dependency-name: "com.android.application"
+        versions: [">= 9.4"]
+      - dependency-name: "com.android.library"
+        versions: [">= 9.4"]
+      - dependency-name: "com.android.tools.build:gradle"
+        versions: [">= 9.4"]
 
   # The actions used by the CI workflow.
   - package-ecosystem: github-actions

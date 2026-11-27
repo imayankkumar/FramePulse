@@ -44,6 +44,8 @@ android {
 
 dependencies {
     implementation(project(":framepulse"))
+    // Writes an HTML frame report of every screen in debug builds, with no code in the app.
+    debugImplementation(project(":framepulse-report"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

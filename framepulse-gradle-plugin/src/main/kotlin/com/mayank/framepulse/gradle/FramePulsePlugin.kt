@@ -58,7 +58,7 @@ class FramePulsePlugin : Plugin<Project> {
 
     companion object {
         /** Also the version of `framepulse-report` it adds; released together. */
-        const val VERSION: String = "0.1.0"
+        const val VERSION: String = "0.2.0"
         const val GROUP: String = "io.github.imayankkumar"
         const val DEFAULT_PORT: Int = 8765
     }

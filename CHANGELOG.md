@@ -2,7 +2,9 @@
 
 All notable changes to FramePulse are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). Before 1.0.0, a minor version (0.x.0) may change the public API.
 
-## Unreleased
+## 0.2.0 - 2026-11-27
+
+On Maven Central as `io.github.imayankkumar:framepulse:0.2.0` and `io.github.imayankkumar:framepulse-report:0.2.0`, and on the Gradle Plugin Portal as `io.github.imayankkumar.framepulse`.
 
 ### Added
 

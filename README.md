@@ -36,7 +36,7 @@ FramePulse is on Maven Central. Make sure `mavenCentral()` is in your repositori
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.github.imayankkumar:framepulse:0.1.0")
+    implementation("io.github.imayankkumar:framepulse:0.2.0")
 }
 ```
 
@@ -49,7 +49,7 @@ Apply the FramePulse Gradle plugin to your app module. There is no code to write
 ```kotlin
 // app/build.gradle.kts
 plugins {
-    id("io.github.imayankkumar.framepulse") version "0.1.0"
+    id("io.github.imayankkumar.framepulse") version "0.2.0"
 }
 ```
 
@@ -67,7 +67,7 @@ Use the debug build, leave a screen, then:
 - Each device gets a folder named after its model. With one device, `http://localhost:8765` opens its report; with more, it lists them. Ctrl+C stops the server.
 - `--variant` picks another variant (default `debug`), for example one with an `applicationIdSuffix`.
 - `framepulse { port = 9000 }` changes the port; the next free one is used if it is taken. `addReportDependency = false` stops the plugin adding `framepulse-report`.
-- Without the plugin, add `debugImplementation("io.github.imayankkumar:framepulse-report:0.1.0")` and copy the file with `adb pull /sdcard/Android/data/your.package.name/files/framepulse-report.html`. Keep it out of release builds: it measures every activity and writes a file on the device.
+- Without the plugin, add `debugImplementation("io.github.imayankkumar:framepulse-report:0.2.0")` and copy the file with `adb pull /sdcard/Android/data/your.package.name/files/framepulse-report.html`. Keep it out of release builds: it measures every activity and writes a file on the device.
 - The report shows the share of smooth frames, the jank and frozen frames, the worst frame, and one card per screen with the frame stage that was longest in its jank frames and the tags set when they happened.
 - Every number is a count FramePulse measured, added up over every visit since the app started. There is no weighted score, and percentiles are left out because they cannot be added up across visits.
 - The exact path is logged once: `adb logcat -s FramePulse`. `FramePulseReport.reportFile(context)` returns it too.

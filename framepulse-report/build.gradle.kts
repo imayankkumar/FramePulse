@@ -49,7 +49,7 @@ kotlin {
 
 mavenPublishing {
     // Released together with :framepulse, with the same version.
-    coordinates("io.github.imayankkumar", "framepulse-report", "0.1.0")
+    coordinates("io.github.imayankkumar", "framepulse-report", "0.2.0")
 
     configure(
         AndroidSingleVariantLibrary(

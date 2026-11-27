@@ -1,0 +1,6 @@
+public final class com/mayank/framepulse/report/FramePulseReport {
+	public static final field INSTANCE Lcom/mayank/framepulse/report/FramePulseReport;
+	public static final fun reportFile (Landroid/content/Context;)Ljava/io/File;
+	public static final fun sessionFor (Landroid/app/Activity;)Lcom/mayank/framepulse/FramePulseSession;
+}
+

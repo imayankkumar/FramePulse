@@ -1,3 +1,5 @@
+import org.gradle.plugin.compatibility.compatibility
+
 plugins {
     // Gradle's own Kotlin, so the plugin runs on the Kotlin that Gradle embeds.
     `kotlin-dsl`
@@ -38,6 +40,13 @@ gradlePlugin {
             description = "Adds the FramePulse frame report to debug builds, copies it from " +
                 "connected devices into build/reports/framepulse and serves it on localhost."
             tags = listOf("android", "performance", "jank", "frames", "report")
+            // Shown on the Plugin Portal. Checked with
+            // ./gradlew :app:framepulseReport --configuration-cache
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
     }
 }

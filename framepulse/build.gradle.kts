@@ -64,7 +64,7 @@ kotlin {
 }
 
 mavenPublishing {
-    coordinates("io.github.imayankkumar", "framepulse", "0.1.0")
+    coordinates("io.github.imayankkumar", "framepulse", "0.2.0")
 
     // The release AAR with sources and javadoc jars (Maven Central requires both). AGP
     // generates the javadoc jar from the KDoc.

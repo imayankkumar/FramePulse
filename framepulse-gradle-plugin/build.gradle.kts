@@ -7,7 +7,7 @@ plugins {
 // Released together with the FramePulse libraries, with the same version. Also set it in
 // FramePulsePlugin.VERSION, which picks the framepulse-report version to add.
 group = "io.github.imayankkumar"
-version = "0.1.0"
+version = "0.2.0"
 
 // AGP 9 needs JDK 17, so every build that applies this plugin runs on 17 or newer.
 java {

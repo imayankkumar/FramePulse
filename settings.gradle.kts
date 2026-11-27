@@ -22,4 +22,5 @@ dependencyResolutionManagement {
 rootProject.name = "FramePulse"
 include(":app")
 include(":framepulse")
+include(":framepulse-report")
 include(":benchmark")

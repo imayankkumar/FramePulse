@@ -4,6 +4,10 @@ All notable changes to FramePulse are listed here. The format follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+
+- `framepulse-report`, a new artifact for debug builds. With no code, it measures every activity and writes an HTML report of every screen to the app's files folder: smooth frames, jank and frozen frames, the worst frame, the longest frame stage in jank frames, and the tags set when they happened. `FramePulseReport.sessionFor(activity)` sets tags on its sessions, and `FramePulseReport.reportFile(context)` returns the file.
+
 ### Fixed
 
 - A session started with an activity (API 24+) no longer leaves out the frames drawn just before the window goes idle. The listener gets one more snapshot with them about 100 ms after the window stops drawing, no sooner than `reportIntervalMs` after the previous one.

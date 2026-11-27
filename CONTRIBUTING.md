@@ -24,11 +24,11 @@ CI runs the same build, and the instrumentation tests on emulators with API 21, 
 
 ## Public API
 
-The public API is recorded in `framepulse/api/framepulse.api`, and the build fails when the compiled library differs from it. If you change the public API on purpose, update the file and commit it with your change:
+The public API of each library is recorded in `framepulse/api/framepulse.api` and `framepulse-report/api/framepulse-report.api`, and the build fails when a compiled library differs from its file. If you change the public API on purpose, update the files and commit them with your change:
 
 ```bash
-# Record the current public API
-./gradlew :framepulse:apiDump
+# Record the current public API of both libraries
+./gradlew apiDump
 ```
 
 Adding to the API is fine. Removing or changing something already in the file breaks apps compiled against an earlier version, so discuss it in an issue first.

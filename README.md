@@ -309,11 +309,11 @@ On the same device, FramePulse counted 401 frames and 58 jank frames for a scrol
 
 ### How to update the public API file?
 
-The build fails when the public API differs from [`framepulse/api/framepulse.api`](framepulse/api/framepulse.api). When you change the API on purpose:
+The build fails when a library's public API differs from its API file: [`framepulse/api/framepulse.api`](framepulse/api/framepulse.api) or [`framepulse-report/api/framepulse-report.api`](framepulse-report/api/framepulse-report.api). When you change the API on purpose:
 
 ```bash
-# Record the current public API
-./gradlew :framepulse:apiDump
+# Record the current public API of both libraries
+./gradlew apiDump
 ```
 
 ### How to publish a release?
@@ -455,6 +455,8 @@ Set the same version in `framepulse/build.gradle.kts` and `framepulse-report/bui
 │   ├── consumer-rules.pro
 │   └── proguard-rules.pro
 ├── framepulse-report
+│   ├── api
+│   │   └── framepulse-report.api
 │   ├── src
 │   │   ├── main
 │   │   │   ├── java

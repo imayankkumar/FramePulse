@@ -48,6 +48,7 @@ FrameSource, one of:
 - **Tags**: say what the app was doing (the screen, "scrolling") during each jank frame.
 - **Session summary**: totals, jank rate, whole-session percentiles and a per-tag breakdown.
 - **Every activity**: `FramePulse.monitorActivities` measures each activity from `onStart` to `onStop` with one call.
+- **HTML report**: add `framepulse-report` to debug builds and get a report of every screen, with no code.
 - **Low overhead**: about 65 ns and no allocations per frame on a Pixel 6 Pro.
 - **Stable API**: one public package, usable from Kotlin and Java, checked against `framepulse/api/framepulse.api` in CI.
 - Check what changed in each version in [CHANGELOG.md](CHANGELOG.md).
@@ -210,6 +211,28 @@ class MyApp : Application() {
 - Each session is tagged `activity` = the activity's class name (`FramePulse.ACTIVITY_TAG`).
 - `monitor.sessionFor(activity)` returns an activity's running session, for example to set more tags.
 
+### How to get an HTML report of every screen?
+
+Add `framepulse-report` to your debug builds. There is no code to write: it starts with your app, measures every activity, and rewrites an HTML report each time an activity stops.
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    debugImplementation("io.github.imayankkumar:framepulse-report:0.1.0")
+}
+```
+
+```bash
+# Copy the report from the device to the current folder (use your app's package name)
+adb pull /sdcard/Android/data/your.package.name/files/framepulse-report.html
+```
+
+- The report shows the share of smooth frames, the jank and frozen frames, the worst frame, and one card per screen with the frame stage that was longest in its jank frames and the tags set when they happened.
+- Every number is a count FramePulse measured, added up over every visit since the app started. There is no weighted score, and percentiles are left out because they cannot be added up across visits.
+- The exact path is logged once: `adb logcat -s FramePulse`. `FramePulseReport.reportFile(context)` returns it too.
+- The report's sessions are separate from yours, so tags you set on your own sessions do not show in it. Set them with `FramePulseReport.sessionFor(activity)?.setTag(...)`.
+- Keep it out of release builds: it measures every activity and writes a file on the device.
+
 ### Threading and lifecycle
 
 - Call `start()`, `setTag()`, `removeTag()` and `summary()` on the main thread. `stop()` works on any thread.
@@ -247,6 +270,9 @@ FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://
 
 # Watch the summaries it logs
 adb logcat -s FramePulse
+
+# Copy the HTML report of every screen it measured (debug build)
+adb pull /sdcard/Android/data/com.mayank.framepulse.sample/files/framepulse-report.html
 ```
 
 ### Example Output
@@ -292,14 +318,14 @@ The build fails when the public API differs from [`framepulse/api/framepulse.api
 
 ### How to publish a release?
 
-Set the version in `framepulse/build.gradle.kts` and give it a dated heading in [CHANGELOG.md](CHANGELOG.md). The Central Portal token and the signing key go in `~/.gradle/gradle.properties`, never in this repository.
+Set the same version in `framepulse/build.gradle.kts` and `framepulse-report/build.gradle.kts`, and give it a dated heading in [CHANGELOG.md](CHANGELOG.md). The Central Portal token and the signing key go in `~/.gradle/gradle.properties`, never in this repository.
 
 ```bash
 # Publish to the local Maven repository to try it first
-./gradlew :framepulse:publishToMavenLocal
+./gradlew :framepulse:publishToMavenLocal :framepulse-report:publishToMavenLocal
 
 # Upload the signed release; it waits in the Central Portal until you publish it there
-./gradlew :framepulse:publishToMavenCentral
+./gradlew :framepulse:publishToMavenCentral :framepulse-report:publishToMavenCentral
 ```
 
 ### The Complete Project Folder Structure
@@ -428,6 +454,28 @@ Set the version in `framepulse/build.gradle.kts` and give it a dated heading in 
 │   ├── build.gradle.kts
 │   ├── consumer-rules.pro
 │   └── proguard-rules.pro
+├── framepulse-report
+│   ├── src
+│   │   ├── main
+│   │   │   ├── java
+│   │   │   │   └── com
+│   │   │   │       └── mayank
+│   │   │   │           └── framepulse
+│   │   │   │               └── report
+│   │   │   │                   ├── internal
+│   │   │   │                   │   ├── ReportInstaller.kt
+│   │   │   │                   │   └── ReportPage.kt
+│   │   │   │                   └── FramePulseReport.kt
+│   │   │   └── AndroidManifest.xml
+│   │   └── test
+│   │       └── java
+│   │           └── com
+│   │               └── mayank
+│   │                   └── framepulse
+│   │                       └── report
+│   │                           └── internal
+│   │                               └── ReportPageTest.kt
+│   └── build.gradle.kts
 ├── gradle
 │   └── libs.versions.toml
 ├── build.gradle.kts

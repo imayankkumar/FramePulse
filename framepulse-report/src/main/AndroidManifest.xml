@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Starts the report when the app process starts, so apps need no code. -->
+        <provider
+            android:name="com.mayank.framepulse.report.internal.ReportInstaller"
+            android:authorities="${applicationId}.framepulse-report"
+            android:exported="false" />
+    </application>
+
+</manifest>

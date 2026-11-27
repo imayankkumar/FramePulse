@@ -1,4 +1,6 @@
 pluginManagement {
+    // The FramePulse Gradle plugin, built from source for the demo app.
+    includeBuild("framepulse-gradle-plugin")
     repositories {
         google {
             content {

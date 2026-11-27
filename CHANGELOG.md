@@ -7,6 +7,7 @@ All notable changes to FramePulse are listed here. The format follows [Keep a Ch
 ### Added
 
 - `framepulse-report`, a new artifact for debug builds. With no code, it measures every activity and writes an HTML report of every screen to the app's files folder: smooth frames, jank and frozen frames, the worst frame, the longest frame stage in jank frames, and the tags set when they happened. `FramePulseReport.sessionFor(activity)` sets tags on its sessions, and `FramePulseReport.reportFile(context)` returns the file.
+- The `io.github.imayankkumar.framepulse` Gradle plugin. It adds `framepulse-report` to debug builds, and `./gradlew :app:framepulseReport` copies the report from every connected device into `build/reports/framepulse` and serves it on `http://localhost:8765`.
 
 ### Fixed
 

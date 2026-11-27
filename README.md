@@ -48,7 +48,7 @@ FrameSource, one of:
 - **Tags**: say what the app was doing (the screen, "scrolling") during each jank frame.
 - **Session summary**: totals, jank rate, whole-session percentiles and a per-tag breakdown.
 - **Every activity**: `FramePulse.monitorActivities` measures each activity from `onStart` to `onStop` with one call.
-- **HTML report**: add `framepulse-report` to debug builds and get a report of every screen, with no code.
+- **HTML report**: apply the Gradle plugin and run `./gradlew :app:framepulseReport` to see a report of every screen on localhost, with no code.
 - **Low overhead**: about 65 ns and no allocations per frame on a Pixel 6 Pro.
 - **Stable API**: one public package, usable from Kotlin and Java, checked against `framepulse/api/framepulse.api` in CI.
 - Check what changed in each version in [CHANGELOG.md](CHANGELOG.md).
@@ -213,20 +213,29 @@ class MyApp : Application() {
 
 ### How to get an HTML report of every screen?
 
-Add `framepulse-report` to your debug builds. There is no code to write: it starts with your app, measures every activity, and rewrites an HTML report each time an activity stops.
+Apply the FramePulse Gradle plugin to your app module. There is no code to write: it adds `framepulse-report` to your debug builds, which measures every activity and rewrites an HTML report on the device each time an activity stops.
 
 ```kotlin
 // app/build.gradle.kts
-dependencies {
-    debugImplementation("io.github.imayankkumar:framepulse-report:0.1.0")
+plugins {
+    id("io.github.imayankkumar.framepulse") version "0.1.0"
 }
 ```
 
+Use the debug build, leave a screen, then:
+
 ```bash
-# Copy the report from the device to the current folder (use your app's package name)
-adb pull /sdcard/Android/data/your.package.name/files/framepulse-report.html
+# Copy the report from every connected device into app/build/reports/framepulse and serve it on http://localhost:8765
+./gradlew :app:framepulseReport
+
+# Only copy it, for example on CI
+./gradlew :app:framepulseReport --no-serve
 ```
 
+- Each device gets a folder named after its model. With one device, `http://localhost:8765` opens its report; with more, it lists them. Ctrl+C stops the server.
+- `--variant` picks another variant (default `debug`), for example one with an `applicationIdSuffix`.
+- `framepulse { port = 9000 }` changes the port; the next free one is used if it is taken. `addReportDependency = false` stops the plugin adding `framepulse-report`.
+- Without the plugin, add `debugImplementation("io.github.imayankkumar:framepulse-report:0.1.0")` and copy the file with `adb pull /sdcard/Android/data/your.package.name/files/framepulse-report.html`.
 - The report shows the share of smooth frames, the jank and frozen frames, the worst frame, and one card per screen with the frame stage that was longest in its jank frames and the tags set when they happened.
 - Every number is a count FramePulse measured, added up over every visit since the app started. There is no weighted score, and percentiles are left out because they cannot be added up across visits.
 - The exact path is logged once: `adb logcat -s FramePulse`. `FramePulseReport.reportFile(context)` returns it too.
@@ -271,8 +280,8 @@ FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://
 # Watch the summaries it logs
 adb logcat -s FramePulse
 
-# Copy the HTML report of every screen it measured (debug build)
-adb pull /sdcard/Android/data/com.mayank.framepulse.sample/files/framepulse-report.html
+# Copy the HTML report of every screen it measured and serve it on http://localhost:8765
+./gradlew :app:framepulseReport
 ```
 
 ### Example Output
@@ -296,6 +305,9 @@ On the same device, FramePulse counted 401 frames and 58 jank frames for a scrol
 # Build everything, run the unit tests and check the public API
 ./gradlew build
 
+# Test the Gradle plugin
+./gradlew :framepulse-gradle-plugin:check
+
 # Run the instrumentation tests (device or emulator, screen on and unlocked)
 ./gradlew :framepulse:connectedDebugAndroidTest
 ```
@@ -318,7 +330,7 @@ The build fails when a library's public API differs from its API file: [`framepu
 
 ### How to publish a release?
 
-Set the same version in `framepulse/build.gradle.kts` and `framepulse-report/build.gradle.kts`, and give it a dated heading in [CHANGELOG.md](CHANGELOG.md). The Central Portal token and the signing key go in `~/.gradle/gradle.properties`, never in this repository.
+Set the same version in `framepulse/build.gradle.kts`, `framepulse-report/build.gradle.kts`, `framepulse-gradle-plugin/build.gradle.kts` and `FramePulsePlugin.VERSION`, and give it a dated heading in [CHANGELOG.md](CHANGELOG.md). The Central Portal token, the signing key and the Gradle Plugin Portal keys (`gradle.publish.key`, `gradle.publish.secret`) go in `~/.gradle/gradle.properties`, never in this repository.
 
 ```bash
 # Publish to the local Maven repository to try it first
@@ -326,6 +338,9 @@ Set the same version in `framepulse/build.gradle.kts` and `framepulse-report/bui
 
 # Upload the signed release; it waits in the Central Portal until you publish it there
 ./gradlew :framepulse:publishToMavenCentral :framepulse-report:publishToMavenCentral
+
+# Publish the Gradle plugin to the Gradle Plugin Portal
+./gradlew :framepulse-gradle-plugin:publishPlugins
 ```
 
 ### The Complete Project Folder Structure
@@ -454,6 +469,30 @@ Set the same version in `framepulse/build.gradle.kts` and `framepulse-report/bui
 │   ├── build.gradle.kts
 │   ├── consumer-rules.pro
 │   └── proguard-rules.pro
+├── framepulse-gradle-plugin
+│   ├── src
+│   │   ├── main
+│   │   │   └── kotlin
+│   │   │       └── com
+│   │   │           └── mayank
+│   │   │               └── framepulse
+│   │   │                   └── gradle
+│   │   │                       ├── Devices.kt
+│   │   │                       ├── FramePulseExtension.kt
+│   │   │                       ├── FramePulsePlugin.kt
+│   │   │                       ├── FramePulseReportTask.kt
+│   │   │                       ├── ReportServer.kt
+│   │   │                       └── ReportServerMain.kt
+│   │   └── test
+│   │       └── kotlin
+│   │           └── com
+│   │               └── mayank
+│   │                   └── framepulse
+│   │                       └── gradle
+│   │                           ├── DevicesTest.kt
+│   │                           └── ReportServerTest.kt
+│   ├── build.gradle.kts
+│   └── settings.gradle.kts
 ├── framepulse-report
 │   ├── api
 │   │   └── framepulse-report.api

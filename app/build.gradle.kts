@@ -1,6 +1,13 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // Adds framepulseReport: copies the frame report from devices and serves it on localhost.
+    id("io.github.imayankkumar.framepulse")
+}
+
+framepulse {
+    // The report comes from the project below, not from Maven Central.
+    addReportDependency = false
 }
 
 android {

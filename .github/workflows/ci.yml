@@ -26,7 +26,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       - name: Build, run unit tests and compile the benchmarks
-        run: ./gradlew build test :benchmark:assembleReleaseAndroidTest --console=plain
+        run: ./gradlew build test :benchmark:assembleReleaseAndroidTest :framepulse-gradle-plugin:check --console=plain
 
       - name: Upload test reports
         if: failure()

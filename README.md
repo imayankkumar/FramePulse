@@ -1,42 +1,19 @@
 # FramePulse
 
-A Kotlin Android library that measures frame times and jank, with rolling-window FPS, percentiles, frozen frames, per-frame jank details, tags, session summaries, tests, benchmarks and a demo app.
+A Kotlin Android library that measures frame times and jank: rolling-window FPS, percentiles, frozen frames, per-frame jank details with stage breakdowns, tags and session summaries, plus an HTML report of every screen.
 
 **You can add this library to your app to see when and where it janks: on which screen, during which action, and in which stage of the frame.**
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/frame-report-dark.png">
+  <img alt="FramePulse frame report: 79.3% smooth frames, 70 jank frames and a 310 ms worst frame across two screens, with the frame stage that was longest in each screen's jank frames" src="docs/images/frame-report-light.png">
+</picture>
+
+<sub>The report of the demo app on a Pixel 6 Pro, from `./gradlew :app:framepulseReport`. The demo janks on purpose.</sub>
+
 Most Android performance libraries hand you an FPS number and hide how it was produced. I built FramePulse the other way: every piece (frame source, rolling-window math, jank rule, session lifecycle) is written from scratch, tested, and explained.
 
-> Status: alpha. The API may change between versions. It is not a replacement for Perfetto, Macrobenchmark or JankStats.
-
-Learn about the library design in detail from the documents mentioned below:
-
-- [Overall library architecture](docs/ARCHITECTURE.md)
-- [FrameMonitor lifecycle](docs/FRAME_MONITOR.md)
-- [Looper, Handler and MessageQueue](docs/AndroidInternals-Looper.md)
-
-## Architecture Layers of the library
-
-- FramePulse (public API)
-- Session
-- FrameMonitor
-- Calculator
-- FrameSource
-
-```
-App
- │  FramePulse.start(activity, config, listener)
- ▼
-FramePulseSessionImpl ──────────────► FramePulseListener.onMetrics(FramePulseMetrics)
- │                                          ▲
- ▼                                          │
-FrameMonitorImpl (IDLE → STARTED → STOPPED) │
- │  frames                                  │
- ├──────────────► RollingWindowFpsCalculator┘
- ▼
-FrameSource, one of:
- ├─ FrameMetricsFrameSource ──► Window.addOnFrameMetricsAvailableListener (drawn frames, API 24+)
- └─ ChoreographerFrameSource ──► Choreographer.postFrameCallback (re-posted every frame)
-```
+> Status: alpha. The API may change before 1.0.
 
 ## Major Features of the library
 
@@ -50,30 +27,7 @@ FrameSource, one of:
 - **Every activity**: `FramePulse.monitorActivities` measures each activity from `onStart` to `onStop` with one call.
 - **HTML report**: apply the Gradle plugin and run `./gradlew :app:framepulseReport` to see a report of every screen on localhost, with no code.
 - **Low overhead**: about 65 ns and no allocations per frame on a Pixel 6 Pro.
-- **Stable API**: one public package, usable from Kotlin and Java, checked against `framepulse/api/framepulse.api` in CI.
-- Check what changed in each version in [CHANGELOG.md](CHANGELOG.md).
-
-### Drawn frames flow (API 24+)
-
-```
-Window draws a frame ──► platform FrameMetrics (TOTAL_DURATION, DEADLINE)
-                                                │
-                              rolling window ──► FPS, jank, max frame time
-```
-
-> `FramePulse.start(activity, …)` on Android 7.0+. Frame time is the platform's `TOTAL_DURATION`, including work off the main thread. Only drawn frames count, so idle time is never jank. When the window stops drawing, the listener gets one more call with the last frames, then none until it draws again.
-
-### Choreographer flow
-
-```
-VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(frameTimeNanos)
-                                                │
-                                   interval = frameTimeNanos − previous
-                                                │
-                              rolling window ──► FPS, jank, max interval
-```
-
-> `FramePulse.start(config, …)`, `FramePulse.start(context, display, …)`, and `start(activity, …)` on Android 5.0–6.0. It measures how regularly the main thread serviced vsync, not what was rendered: callbacks keep arriving at the refresh rate even when nothing on screen changes.
+- **Stable API**: usable from Kotlin and Java, and checked against a recorded API file in CI.
 
 ### How to add FramePulse to your project?
 
@@ -86,7 +40,38 @@ dependencies {
 }
 ```
 
-- Min SDK 21, no Compose dependency. Building this project needs JDK 17 or newer.
+- Min SDK 21, no Compose dependency.
+
+### How to get an HTML report of every screen?
+
+Apply the FramePulse Gradle plugin to your app module. There is no code to write, and you do not need the dependency above: the plugin adds `framepulse-report` to your debug builds only, which measures every activity and rewrites an HTML report on the device each time an activity stops.
+
+```kotlin
+// app/build.gradle.kts
+plugins {
+    id("io.github.imayankkumar.framepulse") version "0.1.0"
+}
+```
+
+Use the debug build, leave a screen, then:
+
+```bash
+# Copy the report from every connected device into app/build/reports/framepulse
+# and serve it on http://localhost:8765
+./gradlew :app:framepulseReport
+
+# Only copy it, for example on CI
+./gradlew :app:framepulseReport --no-serve
+```
+
+- Each device gets a folder named after its model. With one device, `http://localhost:8765` opens its report; with more, it lists them. Ctrl+C stops the server.
+- `--variant` picks another variant (default `debug`), for example one with an `applicationIdSuffix`.
+- `framepulse { port = 9000 }` changes the port; the next free one is used if it is taken. `addReportDependency = false` stops the plugin adding `framepulse-report`.
+- Without the plugin, add `debugImplementation("io.github.imayankkumar:framepulse-report:0.1.0")` and copy the file with `adb pull /sdcard/Android/data/your.package.name/files/framepulse-report.html`. Keep it out of release builds: it measures every activity and writes a file on the device.
+- The report shows the share of smooth frames, the jank and frozen frames, the worst frame, and one card per screen with the frame stage that was longest in its jank frames and the tags set when they happened.
+- Every number is a count FramePulse measured, added up over every visit since the app started. There is no weighted score, and percentiles are left out because they cannot be added up across visits.
+- The exact path is logged once: `adb logcat -s FramePulse`. `FramePulseReport.reportFile(context)` returns it too.
+- The report's sessions are separate from yours, so tags you set on your own sessions do not show in it. Set them with `FramePulseReport.sessionFor(activity)?.setTag(...)`.
 
 ### How to start a session?
 
@@ -180,7 +165,8 @@ override fun onStop() {
         Log.i("FramePulse", "%d frames, %.1f%% jank, p95 %.1f ms".format(
             summary.frameCount, summary.jankRate * 100, summary.p95FrameTimeMs))
         summary.tags.forEach { tag ->
-            Log.i("FramePulse", "${tag.name}=${tag.value}: %.1f%% jank".format(tag.jankRate * 100))
+            val jank = "%.1f".format(tag.jankRate * 100)
+            Log.i("FramePulse", "${tag.name}=${tag.value}: $jank% jank")
         }
     }
     session = null
@@ -210,37 +196,6 @@ class MyApp : Application() {
 
 - Each session is tagged `activity` = the activity's class name (`FramePulse.ACTIVITY_TAG`).
 - `monitor.sessionFor(activity)` returns an activity's running session, for example to set more tags.
-
-### How to get an HTML report of every screen?
-
-Apply the FramePulse Gradle plugin to your app module. There is no code to write: it adds `framepulse-report` to your debug builds, which measures every activity and rewrites an HTML report on the device each time an activity stops.
-
-```kotlin
-// app/build.gradle.kts
-plugins {
-    id("io.github.imayankkumar.framepulse") version "0.1.0"
-}
-```
-
-Use the debug build, leave a screen, then:
-
-```bash
-# Copy the report from every connected device into app/build/reports/framepulse and serve it on http://localhost:8765
-./gradlew :app:framepulseReport
-
-# Only copy it, for example on CI
-./gradlew :app:framepulseReport --no-serve
-```
-
-- Each device gets a folder named after its model. With one device, `http://localhost:8765` opens its report; with more, it lists them. Ctrl+C stops the server.
-- `--variant` picks another variant (default `debug`), for example one with an `applicationIdSuffix`.
-- `framepulse { port = 9000 }` changes the port; the next free one is used if it is taken. `addReportDependency = false` stops the plugin adding `framepulse-report`.
-- Without the plugin, add `debugImplementation("io.github.imayankkumar:framepulse-report:0.1.0")` and copy the file with `adb pull /sdcard/Android/data/your.package.name/files/framepulse-report.html`.
-- The report shows the share of smooth frames, the jank and frozen frames, the worst frame, and one card per screen with the frame stage that was longest in its jank frames and the tags set when they happened.
-- Every number is a count FramePulse measured, added up over every visit since the app started. There is no weighted score, and percentiles are left out because they cannot be added up across visits.
-- The exact path is logged once: `adb logcat -s FramePulse`. `FramePulseReport.reportFile(context)` returns it too.
-- The report's sessions are separate from yours, so tags you set on your own sessions do not show in it. Set them with `FramePulseReport.sessionFor(activity)?.setTag(...)`.
-- Keep it out of release builds: it measures every activity and writes a file on the device.
 
 ### Threading and lifecycle
 
@@ -280,7 +235,7 @@ FramePulse's own work per frame, measured with [Jetpack Microbenchmark](https://
 # Watch the summaries it logs
 adb logcat -s FramePulse
 
-# Copy the HTML report of every screen it measured and serve it on http://localhost:8765
+# Copy the HTML report of every screen you used and open it on http://localhost:8765
 ./gradlew :app:framepulseReport
 ```
 
@@ -299,237 +254,60 @@ scrolling=true: 613 frames, 38 jank (6.2%)
 
 On the same device, FramePulse counted 401 frames and 58 jank frames for a scroll where `adb shell dumpsys gfxinfo` reported 404 frames and 58 janky frames.
 
-### How to run the test?
+### How does FramePulse measure frames?
 
-```bash
-# Build everything, run the unit tests and check the public API
-./gradlew build
+Each frame passes through five layers, from the public API down to the frame source:
 
-# Test the Gradle plugin
-./gradlew :framepulse-gradle-plugin:check
-
-# Run the instrumentation tests (device or emulator, screen on and unlocked)
-./gradlew :framepulse:connectedDebugAndroidTest
-```
-
-### How to run the benchmarks?
-
-```bash
-# Run the benchmarks on a real device (API 23+); results go to benchmark/build/outputs/
-./gradlew :benchmark:connectedReleaseAndroidTest
-```
-
-### How to update the public API file?
-
-The build fails when a library's public API differs from its API file: [`framepulse/api/framepulse.api`](framepulse/api/framepulse.api) or [`framepulse-report/api/framepulse-report.api`](framepulse-report/api/framepulse-report.api). When you change the API on purpose:
-
-```bash
-# Record the current public API of both libraries
-./gradlew apiDump
-```
-
-### How to publish a release?
-
-Set the same version in `framepulse/build.gradle.kts`, `framepulse-report/build.gradle.kts`, `framepulse-gradle-plugin/build.gradle.kts` and `FramePulsePlugin.VERSION`, and give it a dated heading in [CHANGELOG.md](CHANGELOG.md). The Central Portal token, the signing key and the Gradle Plugin Portal keys (`gradle.publish.key`, `gradle.publish.secret`) go in `~/.gradle/gradle.properties`, never in this repository.
-
-```bash
-# Publish to the local Maven repository to try it first
-./gradlew :framepulse:publishToMavenLocal :framepulse-report:publishToMavenLocal
-
-# Upload the signed release; it waits in the Central Portal until you publish it there
-./gradlew :framepulse:publishToMavenCentral :framepulse-report:publishToMavenCentral
-
-# Publish the Gradle plugin to the Gradle Plugin Portal
-./gradlew :framepulse-gradle-plugin:publishPlugins
-```
-
-### The Complete Project Folder Structure
+- FramePulse (public API)
+- Session
+- FrameMonitor
+- Calculator
+- FrameSource
 
 ```
-.
-├── app
-│   ├── src
-│   │   └── main
-│   │       ├── java
-│   │       │   └── com
-│   │       │       └── mayank
-│   │       │           └── framepulse
-│   │       │               └── sample
-│   │       │                   ├── ui
-│   │       │                   │   └── theme
-│   │       │                   │       ├── Color.kt
-│   │       │                   │       ├── Theme.kt
-│   │       │                   │       └── Type.kt
-│   │       │                   ├── Formatting.kt
-│   │       │                   ├── JankyListActivity.kt
-│   │       │                   ├── MainActivity.kt
-│   │       │                   └── SampleApplication.kt
-│   │       └── AndroidManifest.xml
-│   ├── build.gradle.kts
-│   └── proguard-rules.pro
-├── benchmark
-│   ├── src
-│   │   ├── androidTest
-│   │   │   └── java
-│   │   │       └── com
-│   │   │           └── mayank
-│   │   │               └── framepulse
-│   │   │                   └── benchmark
-│   │   │                       └── PerFrameBenchmark.kt
-│   │   └── main
-│   │       └── AndroidManifest.xml
-│   └── build.gradle.kts
-├── docs
-│   ├── AndroidInternals-Looper.md
-│   ├── ARCHITECTURE.md
-│   └── FRAME_MONITOR.md
-├── framepulse
-│   ├── api
-│   │   └── framepulse.api
-│   ├── src
-│   │   ├── androidTest
-│   │   │   ├── java
-│   │   │   │   └── com
-│   │   │   │       └── mayank
-│   │   │   │           └── framepulse
-│   │   │   │               ├── internal
-│   │   │   │               │   └── source
-│   │   │   │               │       ├── ChoreographerFrameSourceTest.kt
-│   │   │   │               │       ├── DisplayRefreshRateSourceTest.kt
-│   │   │   │               │       ├── FrameMetricsFrameSourceTest.kt
-│   │   │   │               │       └── FrameTestActivity.kt
-│   │   │   │               └── ActivityLifecycleTest.kt
-│   │   │   └── AndroidManifest.xml
-│   │   ├── main
-│   │   │   ├── java
-│   │   │   │   └── com
-│   │   │   │       └── mayank
-│   │   │   │           └── framepulse
-│   │   │   │               ├── internal
-│   │   │   │               │   ├── metrics
-│   │   │   │               │   │   ├── FPSCalculator.kt
-│   │   │   │               │   │   ├── FrameTimes.kt
-│   │   │   │               │   │   ├── RollingWindowFpsCalculator.kt
-│   │   │   │               │   │   └── SessionFrameStats.kt
-│   │   │   │               │   ├── source
-│   │   │   │               │   │   ├── ChoreographerFrameSource.kt
-│   │   │   │               │   │   ├── DisplayRefreshRateSource.kt
-│   │   │   │               │   │   ├── FrameConsumer.kt
-│   │   │   │               │   │   ├── FrameMetricsFrameSource.kt
-│   │   │   │               │   │   ├── FrameSource.kt
-│   │   │   │               │   │   ├── FrameStageNanos.kt
-│   │   │   │               │   │   ├── MeasuredFrame.kt
-│   │   │   │               │   │   └── RefreshRateSource.kt
-│   │   │   │               │   ├── ActivityLifecycle.kt
-│   │   │   │               │   ├── ActivitySessionTracker.kt
-│   │   │   │               │   ├── FrameMonitor.kt
-│   │   │   │               │   ├── FrameMonitorImpl.kt
-│   │   │   │               │   ├── FramePulseSessionImpl.kt
-│   │   │   │               │   └── TagTracker.kt
-│   │   │   │               ├── ActivityMonitor.kt
-│   │   │   │               ├── ActivitySessionListener.kt
-│   │   │   │               ├── FramePulse.kt
-│   │   │   │               ├── FramePulseConfig.kt
-│   │   │   │               ├── FramePulseListener.kt
-│   │   │   │               ├── FramePulseMetrics.kt
-│   │   │   │               ├── FramePulseSession.kt
-│   │   │   │               ├── FrameStages.kt
-│   │   │   │               ├── JankFrame.kt
-│   │   │   │               ├── JankFrameListener.kt
-│   │   │   │               └── SessionSummary.kt
-│   │   │   └── AndroidManifest.xml
-│   │   └── test
-│   │       └── java
-│   │           └── com
-│   │               └── mayank
-│   │                   └── framepulse
-│   │                       ├── internal
-│   │                       │   ├── metrics
-│   │                       │   │   ├── RollingWindowFpsCalculatorTest.kt
-│   │                       │   │   ├── RollingWindowMeasuredFramesTest.kt
-│   │                       │   │   ├── RollingWindowPercentilesAndFrozenFramesTest.kt
-│   │                       │   │   └── SessionFrameStatsTest.kt
-│   │                       │   ├── source
-│   │                       │   │   ├── FakeFrameSource.kt
-│   │                       │   │   ├── FakeRefreshRateSource.kt
-│   │                       │   │   └── MeasuredFrameTest.kt
-│   │                       │   ├── ActivitySessionTrackerTest.kt
-│   │                       │   ├── FramePulseSessionIdleReportTest.kt
-│   │                       │   ├── FramePulseSessionImplTest.kt
-│   │                       │   ├── FramePulseSessionJankFramesTest.kt
-│   │                       │   ├── FramePulseSessionMeasuredFramesTest.kt
-│   │                       │   ├── FramePulseSessionRefreshRateTest.kt
-│   │                       │   ├── FramePulseSessionSummaryTest.kt
-│   │                       │   ├── FramePulseSessionTagsTest.kt
-│   │                       │   ├── TagTrackerCountersTest.kt
-│   │                       │   └── TagTrackerTest.kt
-│   │                       ├── FramePulseConfigTest.kt
-│   │                       ├── JavaCallersTest.java
-│   │                       └── ResultTypesTest.kt
-│   ├── build.gradle.kts
-│   ├── consumer-rules.pro
-│   └── proguard-rules.pro
-├── framepulse-gradle-plugin
-│   ├── src
-│   │   ├── main
-│   │   │   └── kotlin
-│   │   │       └── com
-│   │   │           └── mayank
-│   │   │               └── framepulse
-│   │   │                   └── gradle
-│   │   │                       ├── Devices.kt
-│   │   │                       ├── FramePulseExtension.kt
-│   │   │                       ├── FramePulsePlugin.kt
-│   │   │                       ├── FramePulseReportTask.kt
-│   │   │                       ├── ReportServer.kt
-│   │   │                       └── ReportServerMain.kt
-│   │   └── test
-│   │       └── kotlin
-│   │           └── com
-│   │               └── mayank
-│   │                   └── framepulse
-│   │                       └── gradle
-│   │                           ├── DevicesTest.kt
-│   │                           └── ReportServerTest.kt
-│   ├── build.gradle.kts
-│   └── settings.gradle.kts
-├── framepulse-report
-│   ├── api
-│   │   └── framepulse-report.api
-│   ├── src
-│   │   ├── main
-│   │   │   ├── java
-│   │   │   │   └── com
-│   │   │   │       └── mayank
-│   │   │   │           └── framepulse
-│   │   │   │               └── report
-│   │   │   │                   ├── internal
-│   │   │   │                   │   ├── ReportInstaller.kt
-│   │   │   │                   │   └── ReportPage.kt
-│   │   │   │                   └── FramePulseReport.kt
-│   │   │   └── AndroidManifest.xml
-│   │   └── test
-│   │       └── java
-│   │           └── com
-│   │               └── mayank
-│   │                   └── framepulse
-│   │                       └── report
-│   │                           └── internal
-│   │                               └── ReportPageTest.kt
-│   └── build.gradle.kts
-├── gradle
-│   └── libs.versions.toml
-├── build.gradle.kts
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-├── gradle.properties
-├── gradlew
-├── gradlew.bat
-├── LICENSE
-├── README.md
-├── SECURITY.md
-└── settings.gradle.kts
+App
+ │  FramePulse.start(activity, config, listener)
+ ▼
+FramePulseSessionImpl ──────────────► FramePulseListener.onMetrics(FramePulseMetrics)
+ │                                          ▲
+ ▼                                          │
+FrameMonitorImpl (IDLE → STARTED → STOPPED) │
+ │  frames                                  │
+ ├──────────────► RollingWindowFpsCalculator┘
+ ▼
+FrameSource, one of:
+ ├─ FrameMetricsFrameSource ──► Window.addOnFrameMetricsAvailableListener (API 24+)
+ └─ ChoreographerFrameSource ──► Choreographer.postFrameCallback (re-posted every frame)
 ```
+
+#### Drawn frames (API 24+)
+
+```
+Window draws a frame ──► platform FrameMetrics (TOTAL_DURATION, DEADLINE)
+                                                │
+                              rolling window ──► FPS, jank, max frame time
+```
+
+> `FramePulse.start(activity, …)` on Android 7.0+. Frame time is the platform's `TOTAL_DURATION`, including work off the main thread. Only drawn frames count, so idle time is never jank. When the window stops drawing, the listener gets one more call with the last frames, then none until it draws again.
+
+#### Choreographer callbacks
+
+```
+VSYNC ──► Choreographer (main thread) ──► FrameCallback.doFrame(frameTimeNanos)
+                                                │
+                                   interval = frameTimeNanos − previous
+                                                │
+                              rolling window ──► FPS, jank, max interval
+```
+
+> `FramePulse.start(config, …)`, `FramePulse.start(context, display, …)`, and `start(activity, …)` on Android 5.0–6.0. It measures how regularly the main thread serviced vsync, not what was rendered: callbacks keep arriving at the refresh rate even when nothing on screen changes.
+
+Learn about the library design in detail from the documents mentioned below:
+
+- [Overall library architecture](docs/ARCHITECTURE.md)
+- [FrameMonitor lifecycle](docs/FRAME_MONITOR.md)
+- [Looper, Handler and MessageQueue](docs/AndroidInternals-Looper.md)
+- What changed in each version: [CHANGELOG.md](CHANGELOG.md)
 
 ### TODO
 
@@ -558,4 +336,4 @@ Set the same version in `framepulse/build.gradle.kts`, `framepulse-report/build.
 
 ### Contributing to FramePulse
 
-All pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build and test, and [SECURITY.md](SECURITY.md) to report a security problem privately.
+All pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for building, testing, benchmarks, releases and the project structure, and [SECURITY.md](SECURITY.md) to report a security problem privately.
